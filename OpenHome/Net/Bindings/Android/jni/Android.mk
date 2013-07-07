@@ -44,6 +44,7 @@ LOCAL_SRC_FILES := $(ohroot)OpenHome/Ascii.cpp \
                    $(ohroot)OpenHome/Net/Device/DviServer.cpp \
                    $(ohroot)OpenHome/Net/Device/Upnp/DviServerUpnp.cpp \
                    $(ohroot)OpenHome/Net/Device/Upnp/DviServerWebSocket.cpp \
+                   $(ohroot)OpenHome/Net/Device/Upnp/DviSsdpNotifier.cpp \
                    $(ohroot)OpenHome/Net/Device/DviService.cpp \
                    $(ohroot)OpenHome/Net/Device/DviStack.cpp \
                    $(ohroot)OpenHome/Net/Device/DviSubscription.cpp \
@@ -67,7 +68,6 @@ LOCAL_SRC_FILES := $(ohroot)OpenHome/Ascii.cpp \
                    $(ohroot)OpenHome/Net/Device/Bonjour/mDNSCore/uDNS.c \
                    $(ohroot)OpenHome/Net/Device/Bonjour/MdnsPlatform.cpp \
                    $(ohroot)OpenHome/Net/Device/Bonjour/MdnsProvider.cpp \
-                   $(ohroot)OpenHome/Maths.cpp \
                    $(ohroot)OpenHome/md5.c \
                    $(ohroot)OpenHome/NetworkAdapterList.cpp \
                    $(ohroot)OpenHome/Network.cpp \
