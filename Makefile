@@ -73,6 +73,9 @@ else
     ifeq ($(gcc_machine),arm-linux-gnueabi)
       detected_openhome_architecture = armel
     endif
+    ifeq ($(gcc_machine),arm-linux-androideabi)
+      detected_openhome_architecture = armel
+    endif
     ifeq ($(gcc_machine),arm-linux-gnueabihf)
       detected_openhome_architecture = armhf
     endif
@@ -228,6 +231,7 @@ endif
 $(info Building for system ${openhome_system} and architecture ${openhome_architecture})
 
 ifneq (,$(findstring $(platform),Vanilla Linux-ppc32))
+$(info Detected platforn ${platform})
   ifeq ($(gcc4_1), yes)
     version_specific_cflags = ${CROSS_COMPILE_CFLAGS}
     version_specific_cflags_third_party = -Wno-non-virtual-dtor
