@@ -2,7 +2,7 @@
 #define HEADER_DEVICE_LPEC
 
 #include <OpenHome/Net/Private/CpiDevice.h>
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Functor.h>
 #include <OpenHome/Net/Private/CpiService.h>
@@ -45,6 +45,7 @@ private: // from ICpiProtocol
     TUint Renew(CpiSubscription& aSubscription);
     void Unsubscribe(CpiSubscription& aSubscription, const Brx& aSid);
     void NotifyRemovedBeforeReady();
+    TUint Version(const TChar* aDomain, const TChar* aName, TUint aProxyVersion) const;
 private: // from ICpiDeviceObserver
     void Release();
 private:

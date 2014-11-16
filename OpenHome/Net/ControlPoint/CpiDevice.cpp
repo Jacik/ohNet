@@ -1,7 +1,7 @@
 #include <OpenHome/Net/Private/CpiDevice.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Private/Debug.h>
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Private/Env.h>
 #include <OpenHome/Net/Private/CpiStack.h>
 #include <OpenHome/OsWrapper.h>
@@ -104,6 +104,11 @@ void CpiDevice::Unsubscribe(CpiSubscription& aSubscription, const Brx& aSid)
 void CpiDevice::NotifyRemovedBeforeReady()
 {
     iProtocol.NotifyRemovedBeforeReady();
+}
+
+TUint CpiDevice::Version(const TChar* aDomain, const TChar* aName, TUint aProxyVersion) const
+{
+    return iProtocol.Version(aDomain, aName, aProxyVersion);
 }
 
 void CpiDevice::SetReady()
@@ -287,11 +292,16 @@ TBool CpiDeviceList::StartRefresh()
     return refreshAlreadyInProgress;
 }
 
-void CpiDeviceList::RefreshComplete()
+void CpiDeviceList::RefreshComplete(TBool aReportRemoved)
 {
     iRefreshLock.Wait();
-    iCpStack.DeviceListUpdater().QueueRefreshed(*this, iRefreshMap);
-    iRefreshMap.clear();
+    if (aReportRemoved) {
+        iCpStack.DeviceListUpdater().QueueRefreshed(*this, iRefreshMap);
+        iRefreshMap.clear();
+    }
+    else {
+        ClearMap(iRefreshMap);
+    }
     iRefreshing = false;
     iRefreshLock.Signal();
 }

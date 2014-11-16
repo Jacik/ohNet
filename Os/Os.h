@@ -10,26 +10,36 @@
 #define HEADER_OS_C
 
 #include <OpenHome/OsTypes.h>
+#include <OpenHome/Defines.h>
 
 /**
  * 'Null' handle implying no underlying OS object exists
  */
 #define kHandleNull  (0)
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Big endian representation of a 16-bit integer for little endian builds and vice-versa
  */
-#define SwapEndian16(x) (((x)>>8) | ((x)<<8))
+static INLINE uint16_t SwapEndian16(uint16_t aValue)
+{
+    return ((aValue & 0xff00) >> 8)
+        |  ((aValue & 0x00ff) << 8);
+}
 
 /**
  * Big endian representation of a 32-bit integer for little endian builds and vice-versa
  */
-#define SwapEndian32(x) ((((x)&0xFFul)<<24)    | (((x)&0xFF00ul)<<8)     | \
-                         (((x)&0xFF0000ul)>>8) | (((x)&0xFF000000ul)>>24))
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+static INLINE uint32_t SwapEndian32(uint32_t aValue)
+{
+    return ((aValue & 0xff000000) >> 24)
+        |  ((aValue & 0x00ff0000) >> 8 )
+        |  ((aValue & 0x0000ff00) << 8 )
+        |  ((aValue & 0x000000ff) << 24);
+}
 
 /**
  * Called when the UPnP library is initialised.
@@ -58,16 +68,6 @@ void OsDestroy(OsContext* aContext);
  * @param[in] aContext     Returned from OsCreate().
  */
 void OsQuit(OsContext* aContext);
-
-/**
- * Cause a breakpoint.
- *
- * OS specific way of causing a breakpoint such that an OS specific debugger
- * can catch the breakpoint and allow debugging of the program.
- *
- * @param[in] aContext     Returned from OsCreate().
- */
-void OsBreakpoint(OsContext* aContext);
 
 /**
  * Initialise a stack trace for the current call stack.
@@ -312,6 +312,14 @@ typedef void(*ThreadEntryPoint)(void*);
  */
 THandle OsThreadCreate(OsContext* aContext, const char* aName, uint32_t aPriority,
                        uint32_t aStackBytes, ThreadEntryPoint aEntryPoint, void* aArg);
+
+/**
+ * Allow platform code to install any per-thread signal handlers or equivalent.
+ *
+ * Called once per call to OsThreadCreate().  Is called in the context of the
+ * newly created thread.
+ */
+void OsThreadInstallSignalHandlers();
 
 /**
  * Return the 'aArg' value passed to the entrypoint for the current thread
@@ -620,6 +628,18 @@ int32_t OsNetworkSocketMulticastAddMembership(THandle aHandle, TIpAddress aInter
  * @return  0 on success; -1 on failure
  */
 int32_t OsNetworkSocketMulticastDropMembership(THandle aHandle, TIpAddress aInterface, TIpAddress aAddress);
+
+/**
+ * Set the interface for sending multicast requests from this socket
+ *
+ * @param[in] aHandle      Socket handle returned from OsNetworkCreate()
+ * @param[in] aInterface   IpV4 address (in network byte order) specifying the network
+ *                         interface on which the multicast group should be joined.
+ *                         If this is 0, the default multicast interface will be used.
+ *
+ * @return  0 on success; -1 on failure
+ */
+int32_t OsNetworkSocketSetMulticastIf(THandle aHandle, TIpAddress aInterface);
 
 /**
  * Representation of a network interface

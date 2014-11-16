@@ -1,7 +1,7 @@
 #ifndef HEADER_NETWORKINTERFACELIST
 #define HEADER_NETWORKINTERFACELIST
 
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Net/Core/OhNet.h>
 #include <OpenHome/Functor.h>
 #include <OpenHome/FunctorNetworkAdapter.h>
@@ -36,7 +36,6 @@ public:
     virtual ~NetworkAdapterList();
     TBool SingleSubnetModeEnabled() const;
     NetworkAdapter* CurrentAdapter(const char* aCookie) const;
-    const std::vector<NetworkAdapter*>& List() const;
     std::vector<NetworkAdapter*>* CreateSubnetList() const;
     static void DestroySubnetList(std::vector<NetworkAdapter*>* aList);
     std::vector<NetworkAdapter*>* CreateNetworkAdapterList() const;

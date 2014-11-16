@@ -1,5 +1,5 @@
 #include <OpenHome/Net/Core/OhNet.h>
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Net/Private/Shell.h>
 #include <OpenHome/Net/Private/ShellCommandRun.h>
 #include <OpenHome/Net/Private/ShellCommandDebug.h>
@@ -20,6 +20,9 @@ static void RunTestThread(CpStack& /*aCpStack*/, DvStack& /*aDvStack*/, const st
 
 extern void TestException();
 static void RunTestException(CpStack& /*aCpStack*/, DvStack& /*aDvStack*/, const std::vector<Brn>& /*aArgs*/) { TestException(); }
+
+extern void TestFunctorGeneric();
+static void RunTestFunctorGeneric(CpStack& /*aCpStack*/, DvStack& /*aDvStack*/, const std::vector<Brn>& /*aArgs*/) { TestFunctorGeneric(); }
 
 extern void TestFifo();
 static void RunTestFifo(CpStack& /*aCpStack*/, DvStack& /*aDvStack*/, const std::vector<Brn>& /*aArgs*/) { TestFifo(); }
@@ -69,6 +72,9 @@ static void RunTestDvSubscription(CpStack& aCpStack, DvStack& aDvStack, const st
 extern void TestDvLpec(CpStack& aCpStack, DvStack& aDvStack);
 static void RunTestDvLpec(CpStack& aCpStack, DvStack& aDvStack, const std::vector<Brn>& /*aArgs*/) { TestDvLpec(aCpStack, aDvStack); }
 
+extern void TestXmlParser();
+static void RunTestXmlParser(CpStack& /*aCpStack*/, DvStack& /*aDvStack*/, const std::vector<Brn>& /*aArgs*/) { TestXmlParser(); }
+
 void OpenHome::TestFramework::Runner::Main(TInt /*aArgc*/, TChar* /*aArgv*/[], Net::InitialisationParams* aInitParams)
 {
     Library* lib = new Library(aInitParams);
@@ -78,7 +84,7 @@ void OpenHome::TestFramework::Runner::Main(TInt /*aArgc*/, TChar* /*aArgv*/[], N
     Endpoint endpt(0, addr);
     Endpoint::AddressBuf buf;
     endpt.AppendAddress(buf);
-    Print("Connect to %s:%u then 'help' for options\n\n", buf.Ptr(), Shell::kServerPort);
+    Print("Connect to %s:%u then 'help' for options\n\n", buf.Ptr(), Shell::kServerPortDefault);
     Library::DestroySubnetList(subnetList);
     CpStack* cpStack = NULL;
     DvStack* dvStack = NULL;
@@ -88,7 +94,6 @@ void OpenHome::TestFramework::Runner::Main(TInt /*aArgc*/, TChar* /*aArgv*/[], N
     Semaphore* blocker = new Semaphore("BLCK", 0);
 
     std::vector<ShellTest> shellTests;
-    shellTests.push_back(ShellTest("TestBuffer", RunTestBuffer));
     shellTests.push_back(ShellTest("TestBuffer", RunTestBuffer));
     shellTests.push_back(ShellTest("TestThread", RunTestThread));
     shellTests.push_back(ShellTest("TestFifo", RunTestFifo));
@@ -108,6 +113,8 @@ void OpenHome::TestFramework::Runner::Main(TInt /*aArgc*/, TChar* /*aArgv*/[], N
     shellTests.push_back(ShellTest("TestDvSubscription", RunTestDvSubscription));
     shellTests.push_back(ShellTest("TestDvLpec", RunTestDvLpec));
     shellTests.push_back(ShellTest("TestException", RunTestException));
+    shellTests.push_back(ShellTest("TestFunctorGeneric", RunTestFunctorGeneric));
+    shellTests.push_back(ShellTest("TestXmlParser", RunTestXmlParser));
 
     ShellCommandRun* cmdRun = new ShellCommandRun(*cpStack, *dvStack, *shell, shellTests);
     ShellCommandDebug* cmdDebug = new ShellCommandDebug(*shell);

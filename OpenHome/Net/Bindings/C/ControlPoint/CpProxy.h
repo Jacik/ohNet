@@ -1,7 +1,7 @@
 #ifndef HEADER_SERVICE_PROXYC
 #define HEADER_SERVICE_PROXYC
 
-#include <OpenHome/OhNetDefines.h>
+#include <OpenHome/Defines.h>
 #include <OpenHome/OsTypes.h>
 #include <OpenHome/Net/C/OhNet.h>
 #include <OpenHome/Net/C/Service.h>
@@ -84,6 +84,15 @@ DllExport void STDCALL CpProxySetPropertyChanged(THandle aHandle, OhNetCallback 
  * @param[in] aPtr       Data to be passed to the callback
  */
 DllExport void STDCALL CpProxySetPropertyInitialEvent(THandle aHandle, OhNetCallback aCallback, void* aPtr);
+
+/**
+ * Query which service version the remote device implements.
+ *
+ * @param[in] aHandle    Returned from [service]CreateEvented
+ *
+ * @return  Service version
+ */
+DllExport uint32_t STDCALL CpProxyVersion(THandle aHandle);
 
 /**
  * Must be called before reading the value of a property.

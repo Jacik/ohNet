@@ -17,7 +17,7 @@ openhome_configuration = Debug
 android_ndk_debug = 1
 else
 debug_specific_cflags = -g -O2
-debug_csharp = /optimize+
+debug_csharp = /optimize+ /debug:pdbonly
 build_dir = Release
 openhome_configuration = Release
 android_ndk_debug=0
@@ -63,8 +63,9 @@ else ifeq ($(Android-anycpu), 1)
 else
   # At present, platform == Vanilla is used for Kirkwood, x86 and x64 Posix builds.
   platform ?= Vanilla
-
-    ifneq (,$(findstring linux,$(gcc_machine)))
+    ifeq ($(Qnap-anycpu), 1)
+        detected_openhome_system = Qnap
+    else ifneq (,$(findstring linux,$(gcc_machine)))
       detected_openhome_system = Linux
     endif
     ifeq ($(gcc_machine),arm-none-linux-gnueabi)
@@ -128,6 +129,7 @@ endif
 
 
 ifeq ($(platform),iOS)
+	nocpp11=yes
 	linkopts_ohNet =
 	platform_prefix=iPhoneOS
 	platform_compiler=arm-apple-darwin10
@@ -159,21 +161,21 @@ ifeq ($(platform),IntelMac)
 	platform ?= IntelMac
 	linkopts_ohNet = -Wl,-install_name,@loader_path/libohNet.dylib
 	ifeq ($(mac-64),1)
-		platform_cflags = -DPLATFORM_MACOSX_GNU -arch x86_64 -mmacosx-version-min=10.4
+		platform_cflags = -DPLATFORM_MACOSX_GNU -arch x86_64 -mmacosx-version-min=10.7
 		platform_linkflags = -arch x86_64 -framework CoreFoundation -framework SystemConfiguration
 		osbuilddir = Mac-x64
 		openhome_architecture = x64
 	else
-		platform_cflags = -DPLATFORM_MACOSX_GNU -m32 -mmacosx-version-min=10.4
+		platform_cflags = -DPLATFORM_MACOSX_GNU -m32 -mmacosx-version-min=10.7
 		platform_linkflags = -m32 -framework CoreFoundation -framework SystemConfiguration		
 		osbuilddir = Mac-x86
 		openhome_architecture = x86
 	endif
 
 	objdir = Build/Obj/$(osbuilddir)/$(build_dir)/
-	compiler = ${CROSS_COMPILE}gcc -fPIC -o $(objdir)
-	link = ${CROSS_COMPILE}g++ -pthread $(platform_linkflags)
-	ar = ${CROSS_COMPILE}ar rc $(objdir)
+	compiler = clang -fPIC -stdlib=libc++ -o $(objdir)
+	link = clang++ -pthread -stdlib=libc++ $(platform_linkflags)
+	ar = ar rc $(objdir)
 	openhome_system = Mac
 endif
 
@@ -228,8 +230,6 @@ ifeq ($(platform), Core-armv6)
     ar = ${CROSS_COMPILE}ar rc $(objdir)
 endif
 
-$(info Building for system ${openhome_system} and architecture ${openhome_architecture})
-
 ifneq (,$(findstring $(platform),Vanilla Linux-ppc32))
 $(info Detected platforn ${platform})
   ifeq ($(gcc4_1), yes)
@@ -237,7 +237,9 @@ $(info Detected platforn ${platform})
     version_specific_cflags_third_party = -Wno-non-virtual-dtor
     version_specific_java_cflags = -Wstrict-aliasing=0
   else
-    version_specific_cflags = -Wno-psabi ${CROSS_COMPILE_CFLAGS}
+    gcc_min_ver = $(shell ${CROSS_COMPILE}gcc -dumpversion | cut -f2 -d'.')
+    version_specific_cflags = $(shell if [ $(gcc_min_ver) -ge 6 ]; then echo '-Wno-psabi'; fi)
+    version_specific_cflags += ${CROSS_COMPILE_CFLAGS}
     version_specific_cflags_third_party =
     version_specific_java_cflags =
   endif
@@ -271,8 +273,15 @@ ifeq ($(platform), Vanilla)
 	osbuilddir = Posix
 	osdir = Posix
 	endian ?= LITTLE
-	openhome_system = Linux
+	ifeq ($(Qnap-anycpu), 1)
+	    openhome_system = Qnap
+	    nocpp11=yes
+	else
+	    openhome_system = Linux
+	endif
 endif
+
+$(info Building for system ${openhome_system} and architecture ${openhome_architecture})
 
 # Macros used by Common.mak
 native_only ?= no
@@ -283,6 +292,8 @@ cflags_base = -fexceptions -Wall $(version_specific_cflags_third_party) -pipe -D
 cflags_third_party = $(cflags_base) -Wno-int-to-pointer-cast
 ifeq ($(nocpp11), yes)
     cppflags = $(cflags_base) -Werror
+else ifeq ($(platform),IntelMac)
+    cppflags = $(cflags_base) -std=c++11 -Werror
 else
     cppflags = $(cflags_base) -std=c++0x -D__STDC_VERSION__=199901L -Werror
 endif
@@ -305,8 +316,11 @@ endif
 exeext = elf
 linkoutput = -o 
 dllprefix = lib
-link_dll = $(version_specific_library_path) ${CROSS_COMPILE}g++ -pthread  $(platform_linkflags) -shared -shared-libgcc
-link_dll_service = $(version_specific_library_path) ${CROSS_COMPILE}g++ -pthread  $(platform_linkflags) -shared -shared-libgcc -lohNet -L$(objdir)
+ifeq ($(MACHINE), Darwin)
+	link_dll = $(version_specific_library_path) clang++ -pthread  $(platform_linkflags) -shared -stdlib=libc++
+else
+	link_dll = $(version_specific_library_path) ${CROSS_COMPILE}g++ -pthread  $(platform_linkflags) -shared -shared-libgcc
+endif
 ifeq ($(platform), iOS)
 	csharp = /Developer/MonoTouch/usr/bin/smcs /nologo $(debug_csharp)
 else
@@ -316,11 +330,13 @@ csharpdefines ?=
 publicjavadir = OpenHome/Net/Bindings/Java/
 
 ifeq ($(platform), IntelMac)
-	includes_jni = -I/System/Library/Frameworks/JavaVM.framework/Headers -I/usr/include/malloc
-	link_jvm = /System/Library/Frameworks/JavaVM.framework/JavaVM
+	platform_java_cflags = -Wno-self-assign 
+	includes_jni = -I${MACOSX_SDK}/System/Library/Frameworks/JavaVM.framework/Headers -I${MACOSX_SDK}/usr/include/malloc
+	link_jvm = ${MACOSX-SDK}/System/Library/Frameworks/JavaVM.framework/JavaVM
 	javac = /usr/bin/javac
 	jar = /usr/bin/jar
 else
+	platform_java_cflags = 
 	includes_jni = -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/linux
         ifeq ($(platform), Linux-ppc32)
             libjvm_dir ?= $(JAVA_HOME)/jre/lib/ppc/server
@@ -336,7 +352,7 @@ else
 	jar = $(JAVA_HOME)/bin/jar
 endif
 
-java_cflags = -fexceptions -Wall $(version_specific_java_cflags) -Werror -pipe -D_GNU_SOURCE -D_REENTRANT -DDEFINE_$(endian)_ENDIAN -DDEFINE_TRACE $(debug_specific_cflags) $(platform_cflags)
+java_cflags = -fexceptions -Wall $(platform_java_cflags) $(version_specific_java_cflags) -Werror -pipe -D_GNU_SOURCE -D_REENTRANT -DDEFINE_$(endian)_ENDIAN -DDEFINE_TRACE $(debug_specific_cflags) $(platform_cflags)
 jarflags = cf
 dirsep = /
 prefix = /usr/local
@@ -415,15 +431,19 @@ copy_build_includes:
 	rm $(inc_build)/OpenHome/Private/Functor*.h
 	rm $(inc_build)/OpenHome/Private/MimeTypes.h
 	rm $(inc_build)/OpenHome/Private/OhNetDefines.h
+	rm $(inc_build)/OpenHome/Private/Defines.h
 	rm $(inc_build)/OpenHome/Private/OsTypes.h
 	rm $(inc_build)/OpenHome/Private/OhNetTypes.h
+	rm $(inc_build)/OpenHome/Private/Types.h
 	$(cp) OpenHome/Buffer.h $(inc_build)/OpenHome
 	$(cp) OpenHome/Exception.h $(inc_build)/OpenHome
 	$(cp) OpenHome/Functor*.h $(inc_build)/OpenHome
 	$(cp) OpenHome/MimeTypes.h $(inc_build)/OpenHome
 	$(cp) OpenHome/OhNetDefines.h $(inc_build)/OpenHome
+	$(cp) OpenHome/Defines.h $(inc_build)/OpenHome
 	$(cp) OpenHome/OsTypes.h $(inc_build)/OpenHome
 	$(cp) OpenHome/OhNetTypes.h $(inc_build)/OpenHome
+	$(cp) OpenHome/Types.h $(inc_build)/OpenHome
 	$(cp) OpenHome/TestFramework/*.h $(inc_build)/OpenHome/Private
 	$(cp) OpenHome/Net/*.h $(inc_build)/OpenHome/Net/Private
 	rm $(inc_build)/OpenHome/Net/Private/FunctorAsync.h
@@ -544,8 +564,11 @@ bundle:
 
 ifeq ($(platform),iOS)
 ohNet.net.dll :  $(objdir)ohNet.net.dll
+ohNetDll :
 else ifeq ($(platform),Android)
 ohNet.net.dll : $(objdir)ohNet.net.dll ohNetAndroidNative
+ohNetDll : ohNetDllImpl
 else
 ohNet.net.dll :  $(objdir)ohNet.net.dll ohNetDll
+ohNetDll : ohNetDllImpl
 endif

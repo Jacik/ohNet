@@ -11,7 +11,7 @@
 
 #include <OpenHome/Private/TestFramework.h>
 #include <OpenHome/Private/OptionParser.h>
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Net/Private/Discovery.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Private/Timer.h>
@@ -206,7 +206,7 @@ SuiteListen::SuiteListen(Environment& aEnv, TUint aDurationSeconds, TUint aInter
     , iDuration(1000 * aDurationSeconds)
     , iInterfaceIndex(aInterfaceIndex)
 {
-    iTimer = new Timer(aEnv, MakeFunctor(*this, &SuiteListen::TimerExpired));
+    iTimer = new Timer(aEnv, MakeFunctor(*this, &SuiteListen::TimerExpired), "SuiteListen");
 }
 
 SuiteListen::~SuiteListen()
@@ -216,14 +216,15 @@ SuiteListen::~SuiteListen()
 
 TIpAddress SuiteListen::NetworkIf(Environment& aEnv, TUint aIndex)
 {
-    const std::vector<NetworkAdapter*>& ifs = aEnv.NetworkAdapterList().List();
-    ASSERT(ifs.size() > 0 && aIndex < ifs.size());
-    TIpAddress addr = ifs[aIndex]->Address();
+    std::vector<NetworkAdapter*>* ifs = aEnv.NetworkAdapterList().CreateNetworkAdapterList();
+    ASSERT(ifs->size() > 0 && aIndex < ifs->size());
+    TIpAddress addr = (*ifs)[aIndex]->Address();
+    NetworkAdapterList::DestroyNetworkAdapterList(ifs);
     Endpoint endpt(0, addr);
     Endpoint::AddressBuf buf;
     endpt.AppendAddress(buf);
     Print("Using network interface %s\n\n", buf.Ptr());
-    return ifs[aIndex]->Address();
+    return addr;
 }
 
 void SuiteListen::Test()

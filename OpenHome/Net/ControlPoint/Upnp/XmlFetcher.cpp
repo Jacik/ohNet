@@ -16,7 +16,6 @@ using namespace OpenHome::Net;
 
 void XmlFetch::Set(OpenHome::Uri* aUri, FunctorAsync& aFunctor)
 {
-    ASSERT(aUri->Port()!=Uri::kPortNotSpecified);
     iUri = aUri;
     iFunctor = aFunctor;
     iSequenceNumber = iCpStack.Env().SequenceNumber();
@@ -24,11 +23,8 @@ void XmlFetch::Set(OpenHome::Uri* aUri, FunctorAsync& aFunctor)
 
 void XmlFetch::CheckContactable(OpenHome::Uri* aUri, FunctorAsync& aFunctor)
 {
-    ASSERT(aUri->Port()!=Uri::kPortNotSpecified);
+    Set(aUri, aFunctor);
     iCheckContactable = true;
-    iUri = aUri;
-    iFunctor = aFunctor;
-    iSequenceNumber = iCpStack.Env().SequenceNumber();
 }
 
 XmlFetch::~XmlFetch()
@@ -91,7 +87,8 @@ void XmlFetch::Fetch()
     iSocket = &socket;
     iLock.Signal();
     try {
-        Endpoint endpoint(iUri->Port(), iUri->Host());
+        const TUint port = (iUri->Port()==Uri::kPortNotSpecified? 80 : iUri->Port());
+        Endpoint endpoint(port, iUri->Host());
         TUint timeout = iCpStack.Env().InitParams()->TcpConnectTimeoutMs();
         socket.Connect(endpoint, timeout);
         WriteRequest(socket);
@@ -175,7 +172,8 @@ void XmlFetch::WriteRequest(SocketTcpClient& aSocket)
     WriterHttpRequest writerRequest(writeBuffer);
 
     writerRequest.WriteMethod((iCheckContactable? Http::kMethodHead : Http::kMethodGet), iUri->PathAndQuery(), Http::eHttp11);
-    Http::WriteHeaderHostAndPort(writerRequest, iUri->Host(), iUri->Port());
+    const TUint port = (iUri->Port()==Uri::kPortNotSpecified? 80 : iUri->Port());
+    Http::WriteHeaderHostAndPort(writerRequest, iUri->Host(), port);
     Http::WriteHeaderContentLength(writerRequest, 0);
     Http::WriteHeaderConnectionClose(writerRequest);
     writerRequest.WriteFlush();

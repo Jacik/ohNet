@@ -1,7 +1,7 @@
 #ifndef HEADER_CPDEVICECPPUPNP
 #define HEADER_CPDEVICECPPUPNP
 
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Net/Cpp/CpDevice.h>
 #include <OpenHome/Net/Cpp/FunctorCpDevice.h>
 
@@ -13,9 +13,9 @@ namespace Net {
 /**
  * CpDeviceCpp::GetAttribute supports the following keys for devices created by
  * one of the lists below:
- *  location     - host portion of uri to the device
- *  deviceXml    - copy of the device XML
- *  friendlyName - user displayable name for the device
+ *  Location     - host portion of uri to the device
+ *  DeviceXml    - copy of the device XML
+ *  FriendlyName - user displayable name for the device
  *
  * All key names are case sensitive
  */

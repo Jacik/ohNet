@@ -372,6 +372,11 @@ void InitialisationParams::SetDvLpecServerPort(uint32_t aPort)
     iDvLpecServerPort = aPort;
 }
 
+void InitialisationParams::SetHostUdpIsLowQuality(TBool aLow)
+{
+    iHostUdpLowQuality = aLow;
+}
+
 FunctorMsg& InitialisationParams::LogOutput()
 {
     return iLogOutput;
@@ -536,6 +541,20 @@ uint32_t InitialisationParams::DvLpecServerPort()
     return iDvLpecServerPort;
 }
 
+bool InitialisationParams::IsHostUdpLowQuality()
+{
+    return iHostUdpLowQuality;
+}
+
+#if defined(PLATFORM_MACOSX_GNU) || defined (PLATFORM_IOS)
+/* Assume that all Apple products have poor quality networking.
+   This won't be the case for a wired Mac desktop but we'd need a way of signalling which
+   adapters are wired from OsNetworkListAdapters to do this... */
+# define HOST_UDP_LOW_QUALITY_DEFAULT true
+#else
+# define HOST_UDP_LOW_QUALITY_DEFAULT false
+#endif
+
 InitialisationParams::InitialisationParams()
     : iTcpConnectTimeoutMs(3000)
     , iMsearchTimeSecs(3)
@@ -557,6 +576,7 @@ InitialisationParams::InitialisationParams()
     , iDvUpnpWebServerPort(0)
     , iDvWebSocketPort(0)
     , iEnableBonjour(false)
+    , iHostUdpLowQuality(HOST_UDP_LOW_QUALITY_DEFAULT)
     , iDvNumLpecThreads(0)
     , iDvLpecServerPort(0)
 {
@@ -579,14 +599,24 @@ void InitialisationParams::FatalErrorHandlerDefault(const char* aMsg)
 
 Library::Library(InitialisationParams* aInitParams)
 {
-    iEnv = new OpenHome::Environment(aInitParams);
+    if ( gEnv == NULL ) {
+        iEnvOwner = true;
+        iEnv = Environment::Create(aInitParams);
+    }
+    else {
+        iEnvOwner = false;
+        iEnv = gEnv;
+        iEnv->SetInitParams(aInitParams);
+    }
     //Debug::SetLevel(Debug::kError);
 }
 
 Library::~Library()
 {
-    delete iEnv;
-    gEnv = NULL;
+    if ( iEnvOwner ) {
+        delete iEnv;
+        gEnv = NULL;
+    }
 }
 
 OpenHome::Environment& Library::Env()
@@ -624,6 +654,11 @@ NetworkAdapter* Library::CurrentSubnetAdapter(const char* aCookie)
     return iEnv->NetworkAdapterList().CurrentAdapter(aCookie);
 }
 
+void Library::NotifySuspended()
+{
+    iEnv->NotifySuspended();
+}
+
 void Library::NotifyResumed()
 {
     iEnv->NotifyResumed();
@@ -635,14 +670,14 @@ void Library::NotifyResumed()
 Environment* UpnpLibrary::Initialise(InitialisationParams* aInitParams)
 {
     ASSERT(gEnv == NULL);
-    Environment* env = new Environment(aInitParams);
+    Environment* env = Environment::Create(aInitParams);
     //Debug::SetLevel(Debug::kError);
     return env;
 }
 
 Environment* UpnpLibrary::InitialiseMinimal(InitialisationParams* aInitParams)
 {
-    Environment* env = new Environment(aInitParams->LogOutput());
+    Environment* env = Environment::Create(aInitParams->LogOutput());
     return env;
 }
 
@@ -680,6 +715,11 @@ void UpnpLibrary::SetCurrentSubnet(TIpAddress aSubnet)
 NetworkAdapter* UpnpLibrary::CurrentSubnetAdapter(const char* aCookie)
 {
     return gEnv->NetworkAdapterList().CurrentAdapter(aCookie);
+}
+
+void UpnpLibrary::NotifySuspended()
+{
+    gEnv->NotifySuspended();
 }
 
 void UpnpLibrary::NotifyResumed()

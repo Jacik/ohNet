@@ -29,7 +29,7 @@ void SuiteConstruction::Test()
     TEST(ptr2.Bytes() == strlen(str));
     TEST(ptr1 == ptr2);
 
-    //2) Create a stack based Bws 
+    //2) Create a stack based Bws
     Bws<10> buf1;
     TEST(buf1 != ptr1);
     TEST(buf1.Bytes() == 0);
@@ -109,7 +109,7 @@ void SuiteModification::Test()
     TEST(buf2.Bytes() == 0);
     TEST(buf2.MaxBytes() == 12);
 
-    //Compare two empty buffers 
+    //Compare two empty buffers
     buf1.SetBytes(0);
     TEST(buf1 == buf2);
     TEST(!(buf1 != buf2));
@@ -129,6 +129,9 @@ void SuiteModification::Test()
 
     TEST_THROWS(buf1.Append('2'), AssertionFailed);
     TEST(buf1.Bytes() == 8);
+    TEST(!buf1.TryAppend('2'));
+    buf1.SetBytes(7);
+    TEST(buf1.TryAppend('1'));
 
     //Append a TChar*
     buf1.SetBytes(0);
@@ -140,6 +143,10 @@ void SuiteModification::Test()
     buf2.Append('1');
     buf1.SetBytes(8);
     TEST(buf1 == buf2); //Bwstring1 == Bwstring1
+    TEST(!buf1.TryAppend("2"));
+    buf1.SetBytes(7);
+    TEST(buf1.TryAppend("2"));
+
 
     //Append a B
     buf1.SetBytes(0);
@@ -149,6 +156,11 @@ void SuiteModification::Test()
     TEST(buf1 == buf2);
     TEST(buf1.Bytes() == 7);
     TEST(buf2.Bytes() == 7);
+    buf2.SetBytes(0);
+    TEST(buf2.TryAppend(buf1));
+    buf2.SetBytes(6);
+    TEST(!buf2.TryAppend(buf1));
+
 
     //Append a TByte*
     buf1.SetBytes(0);
@@ -164,62 +176,9 @@ void SuiteModification::Test()
     TEST(buf2.Bytes() == 8);
     TEST(buf2.MaxBytes() == 12);
     TEST(buf1 == buf2);
-
-    //Append a TUint16
+    TEST(!buf1.TryAppend(byte, 8));
     buf1.SetBytes(0);
-    TUint16 valueTUint16 = 1;
-    buf1.Append(valueTUint16);
-    TEST(buf1.Bytes() == 2);
-    TEST(buf1.MaxBytes() == 8);
-    const TByte *ptrTUint16 = buf1.Ptr();
-    TInt resCmpTUint16 = memcmp(ptrTUint16, &valueTUint16, 2);
-    TEST(resCmpTUint16 == 0);
-
-    buf2.SetBytes(0);
-    buf2.Append(valueTUint16);
-    TEST(buf1 == buf2);
-
-    //Append a TInt16
-    buf1.SetBytes(0);
-    TInt16 valueTInt16 = -1;
-    buf1.Append(valueTInt16);
-    TEST(buf1.Bytes() == 2);
-    TEST(buf1.MaxBytes() == 8);
-    const TByte *ptrTInt16 = buf1.Ptr();
-    TInt resCmpTInt16 = memcmp(ptrTInt16, &valueTInt16, 2);
-    TEST(resCmpTInt16 == 0);
-
-    buf2.SetBytes(0);
-    buf2.Append(valueTInt16);
-    TEST(buf1 == buf2);
-
-    //Append a TUint32
-    buf1.SetBytes(0);
-    TUint32 valueTUint32 = 1;
-    buf1.Append(valueTUint32);
-    TEST(buf1.Bytes() == 4);
-    TEST(buf1.MaxBytes() == 8);
-    const TByte *ptrTUint32 = buf1.Ptr();
-    TInt resCmpTUint32 = memcmp(ptrTUint32, &valueTUint32, 4);
-    TEST(resCmpTUint32 == 0);
-
-    buf2.SetBytes(0);
-    buf2.Append(valueTUint32);
-    TEST(buf1 == buf2);
-
-    //Append a TInt32
-    buf1.SetBytes(0);
-    TInt32 valueTInt32 = -1;
-    buf1.Append(valueTInt32);
-    TEST(buf1.Bytes() == 4);
-    TEST(buf1.MaxBytes() == 8);
-    const TByte *ptrTInt32 = buf1.Ptr();
-    TInt resCmpTInt32 = memcmp(ptrTInt32, &valueTInt32, 4);
-    TEST(resCmpTInt32 == 0);
-
-    buf2.SetBytes(0);
-    buf2.Append(valueTInt32);
-    TEST(buf1 == buf2);
+    TEST(buf1.TryAppend(byte, 8));
 
     //Filling
     buf1.SetBytes(5);
@@ -244,7 +203,7 @@ public:
     void Test();
 };
 
-void SuiteElements::Test() 
+void SuiteElements::Test()
 {
     //1) element access on constant buffers
     const TChar* str = "FirstString";
@@ -279,6 +238,12 @@ void SuiteElements::Test()
     TEST(buf[1] == 0x99);
 
     TEST_THROWS(buf[13] = 0x90, AssertionFailed);
+
+    //3) access elements of a const Bwx
+
+    const Bws<16> b("something");
+    TEST(b.At(0) == 's');
+    TEST(b[0] == 's');
 }
 
 class SuiteHeap : public Suite
@@ -386,7 +351,7 @@ void SuiteHeap::Test()
     TEST(larger.MaxBytes() == 6);
     TEST(larger == small);
     }
-    
+
     {
     Bwh src("stuff");
     Bwh trg;
@@ -447,19 +412,19 @@ void SuiteSplit::Test()
     Bws<5> aaaa("56789");
     TEST(b.Bytes() == 5);
     TEST(b == aaaa);
-    
+
     b.Set(a.Split(20));
     TEST(b.Bytes() == 0);
     TEST(b == Brx::Empty());
-    
+
     b.Set(a.Split(19));
     TEST(b.Bytes() == 1);
     TEST(b == aaa);
-    
+
     b.Set(a.Split(1));
     TEST(b.Bytes() == 19);
     TEST(b == aa.Split(1, 19));
-    
+
     b.Set(a.Split(0));
     TEST(b.Bytes() == 20);
     TEST(b == aa.Split(0, 20));
@@ -468,7 +433,7 @@ void SuiteSplit::Test()
     }
 
     {
-    const TByte a[10] = { 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 
+    const TByte a[10] = { 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
                             0x1A, 0x2B, 0x3C, 0x4D };
     Brn b(a,10);
     }
@@ -577,7 +542,7 @@ void SuiteTestBwn::Test()
 
     TByte fakeBuff1[] = "abcdefgh";
     TUint fakeBuffLen1    = 8;
-    TUint fakeBuffMaxLen1 = 8; 
+    TUint fakeBuffMaxLen1 = 8;
 
     TByte fakeBuff2[] = "ijklm";
     TUint fakeBuffLen2    = 5;
@@ -586,7 +551,7 @@ void SuiteTestBwn::Test()
     // Test the constructors.
     // fail on maxBytes
     // the '; (void)bwn4' just shuts the compiler up about unused variables
-    TEST_THROWS( Bwn bwn4( fakeBuff1, fakeBuffMaxLen1, fakeBuffMaxLen1-1 ); (void)bwn4, AssertionFailed );  
+    TEST_THROWS( Bwn bwn4( fakeBuff1, fakeBuffMaxLen1, fakeBuffMaxLen1-1 ); (void)bwn4, AssertionFailed );
 
     Bwn bwn1( fakeBuff1, (TUint)strlen((const TChar *)fakeBuff1), fakeBuffMaxLen1 );                    // create a bwn.
     Bwn bwn2( fakeBuff1, (TUint)strlen((const TChar *)fakeBuff1), fakeBuffMaxLen1 );                    // and another...

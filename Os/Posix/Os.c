@@ -46,13 +46,23 @@
 #define kMinStackBytes (1024 * 512)
 #define kThreadSchedPolicy (SCHED_RR)
 
+#define TEMP_FAILURE_RETRY_2(expression, handle)                            \
+    (__extension__                                                          \
+    ({ long int __result;                                                   \
+    do                                                                      \
+        __result = (long int) (expression);                                 \
+    while (__result == -1L && errno == EINTR&& !SocketInterrupted(handle)); \
+    __result; }))
+
+
 #ifdef PLATFORM_MACOSX_GNU
-# define TEMP_FAILURE_RETRY(expression) \
-(__extension__ \
-({ long int __result; \
-do __result = (long int) (expression); \
-while (__result == -1L && errno == EINTR); \
-__result; }))
+# define TEMP_FAILURE_RETRY(expression)        \
+    (__extension__                             \
+    ({ long int __result;                      \
+    do                                         \
+        __result = (long int) (expression);    \
+    while (__result == -1L && errno == EINTR); \
+    __result; }))
 # define MAX_FILE_DESCRIPTOR FD_SETSIZE
 # define MSG_NOSIGNAL 0
 #else
@@ -107,14 +117,14 @@ void OsQuit(OsContext* aContext)
     abort();
 }
 
-void OsBreakpoint(OsContext* aContext)
-{
-    raise(SIGTRAP);
-}
-
-
 #if defined(PLATFORM_MACOSX_GNU) && !defined(PLATFORM_IOS)
-#define STACK_TRACE_MAX_DEPTH 64
+# define STACK_TRACE_ENABLE
+#else
+# undef  STACK_TRACE_ENABLE
+#endif
+
+#ifdef STACK_TRACE_ENABLE
+# define STACK_TRACE_MAX_DEPTH 64
 typedef struct OsStackTrace
 {
     void* iStack[STACK_TRACE_MAX_DEPTH];
@@ -122,12 +132,12 @@ typedef struct OsStackTrace
     char** iSymbols;
     
 } OsStackTrace;
-#endif /* defined(PLATFORM_MACOSX_GNU) && !defined(PLATFORM_IOS) */
+#endif /* STACK_TRACE_ENABLE */
 
 
 THandle OsStackTraceInitialise(OsContext* aContext)
 {
-#if defined(PLATFORM_MACOSX_GNU) && !defined(PLATFORM_IOS)
+#ifdef STACK_TRACE_ENABLE
     OsStackTrace* stackTrace = (OsStackTrace*)malloc(sizeof(OsStackTrace));
     if (stackTrace == NULL) {
         return kHandleNull;
@@ -138,12 +148,12 @@ THandle OsStackTraceInitialise(OsContext* aContext)
     return stackTrace;
 #else
     return kHandleNull;
-#endif /* defined(PLATFORM_MACOSX_GNU) && !defined(PLATFORM_IOS) */
+#endif /* STACK_TRACE_ENABLE */
 }
 
 THandle OsStackTraceCopy(THandle aStackTrace)
 {
-#if defined(PLATFORM_MACOSX_GNU) && !defined(PLATFORM_IOS)
+#ifdef STACK_TRACE_ENABLE
     OsStackTrace* stackTrace = (OsStackTrace*)aStackTrace;
     OsStackTrace* copy = NULL;
     if (stackTrace == NULL) {
@@ -161,12 +171,12 @@ THandle OsStackTraceCopy(THandle aStackTrace)
 #else
     (void)aStackTrace;
     return kHandleNull;
-#endif /* defined(PLATFORM_MACOSX_GNU) && !defined(PLATFORM_IOS) */
+#endif /* STACK_TRACE_ENABLE */
 }
 
 uint32_t OsStackTraceNumEntries(THandle aStackTrace)
 {
-#if defined(PLATFORM_MACOSX_GNU) && !defined(PLATFORM_IOS)
+#ifdef STACK_TRACE_ENABLE
     OsStackTrace* stackTrace = (OsStackTrace*)aStackTrace;
     if (stackTrace == kHandleNull) {
         return 0;
@@ -176,12 +186,12 @@ uint32_t OsStackTraceNumEntries(THandle aStackTrace)
 #else
     (void)aStackTrace;
     return 0;
-#endif /* defined(PLATFORM_MACOSX_GNU) && !defined(PLATFORM_IOS) */
+#endif /* STACK_TRACE_ENABLE */
 }
 
 const char* OsStackTraceEntry(THandle aStackTrace, uint32_t aIndex)
 {
-#if defined(PLATFORM_MACOSX_GNU) && !defined(PLATFORM_IOS)
+#ifdef STACK_TRACE_ENABLE
     OsStackTrace* stackTrace = (OsStackTrace*)aStackTrace;
     if (stackTrace == kHandleNull) {
         return NULL;
@@ -201,12 +211,12 @@ const char* OsStackTraceEntry(THandle aStackTrace, uint32_t aIndex)
     (void)aStackTrace;
     (void)aIndex;
     return NULL;
-#endif /* defined(PLATFORM_MACOSX_GNU) && !defined(PLATFORM_IOS) */
+#endif /* STACK_TRACE_ENABLE */
 }
 
 void OsStackTraceFinalise(THandle aStackTrace)
 {
-#if defined(PLATFORM_MACOSX_GNU) && !defined(PLATFORM_IOS)
+#ifdef STACK_TRACE_ENABLE
     OsStackTrace* stackTrace = (OsStackTrace*)aStackTrace;
     if (stackTrace != kHandleNull) {
         if (stackTrace->iSymbols != NULL) {
@@ -216,7 +226,7 @@ void OsStackTraceFinalise(THandle aStackTrace)
     }
 #else
     (void)aStackTrace;
-#endif /* defined(PLATFORM_MACOSX_GNU) && !defined(PLATFORM_IOS) */
+#endif /* STACK_TRACE_ENABLE */
 }
 
 static struct timeval subtractTimeval(struct timeval* aT1, struct timeval* aT2)
@@ -493,10 +503,10 @@ static void* threadEntrypoint(void* aArg)
         int nice_value = -1 * (((((int) data->iPriority-50) * kMinimumNice) / (150-50)) - kMinimumNice);
         if ( nice_value < 0 )
             nice_value = 0;
-        //printf("Thread of priority %d asking for niceness %d\n", data->iPriority, nice_value);
+        //printf("Thread of priority %d asking for niceness %d (current niceness is %d)\n", data->iPriority, nice_value, getpriority(PRIO_PROCESS, 0));
         int result = setpriority(PRIO_PROCESS, 0, nice_value);
         //if ( result == -1 )
-        //    printf("Warning: Could not renice this thread!\n");
+        //    perror("Warning: Could not renice this thread");
     }
 #endif
 
@@ -720,7 +730,7 @@ int32_t OsNetworkConnect(THandle aHandle, TIpAddress aAddress, uint16_t aPort, u
     tv.tv_sec = aTimeoutMs / 1000;
     tv.tv_usec = (aTimeoutMs % 1000) * 1000;
 
-    int32_t selectErr = TEMP_FAILURE_RETRY(select(nfds(handle), &read, &write, &error, &tv));
+    int32_t selectErr = TEMP_FAILURE_RETRY_2(select(nfds(handle), &read, &write, &error, &tv), handle);
     if (selectErr > 0 && FD_ISSET(handle->iSocket, &write)) {
         err = 0;
     }
@@ -738,7 +748,7 @@ int32_t OsNetworkSend(THandle aHandle, const uint8_t* aBuffer, uint32_t aBytes)
     int32_t sent = 0;
     int32_t bytes = 0;
     do {
-        bytes = TEMP_FAILURE_RETRY(send(handle->iSocket, &aBuffer[sent], aBytes-sent, MSG_NOSIGNAL));
+        bytes = TEMP_FAILURE_RETRY_2(send(handle->iSocket, &aBuffer[sent], aBytes-sent, MSG_NOSIGNAL), handle);
         if (bytes != -1) {
             sent += bytes;
         }
@@ -757,7 +767,7 @@ int32_t OsNetworkSendTo(THandle aHandle, const uint8_t* aBuffer, uint32_t aBytes
     int32_t sent = 0;
     int32_t bytes = 0;
     do {
-        bytes = TEMP_FAILURE_RETRY(sendto(handle->iSocket, &aBuffer[sent], aBytes-sent, MSG_NOSIGNAL, (struct sockaddr*)&addr, sizeof(addr)));
+        bytes = TEMP_FAILURE_RETRY_2(sendto(handle->iSocket, &aBuffer[sent], aBytes-sent, MSG_NOSIGNAL, (struct sockaddr*)&addr, sizeof(addr)), handle);
         if (bytes != -1) {
             sent += bytes;
         }
@@ -781,11 +791,11 @@ int32_t OsNetworkReceive(THandle aHandle, uint8_t* aBuffer, uint32_t aBytes)
     FD_ZERO(&error);
     FD_SET(handle->iSocket, &error);
 
-    int32_t received = TEMP_FAILURE_RETRY(recv(handle->iSocket, aBuffer, aBytes, MSG_NOSIGNAL));
+    int32_t received = TEMP_FAILURE_RETRY_2(recv(handle->iSocket, aBuffer, aBytes, MSG_NOSIGNAL), handle);
     if (received==-1 && errno==EWOULDBLOCK) {
-        int32_t selectErr = TEMP_FAILURE_RETRY(select(nfds(handle), &read, NULL, &error, NULL));
+        int32_t selectErr = TEMP_FAILURE_RETRY_2(select(nfds(handle), &read, NULL, &error, NULL), handle);
         if (selectErr > 0 && FD_ISSET(handle->iSocket, &read)) {
-            received = TEMP_FAILURE_RETRY(recv(handle->iSocket, aBuffer, aBytes, MSG_NOSIGNAL));
+            received = TEMP_FAILURE_RETRY_2(recv(handle->iSocket, aBuffer, aBytes, MSG_NOSIGNAL), handle);
         }
     }
 
@@ -813,11 +823,11 @@ int32_t OsNetworkReceiveFrom(THandle aHandle, uint8_t* aBuffer, uint32_t aBytes,
     FD_ZERO(&error);
     FD_SET(handle->iSocket, &error);
 
-    int32_t received = TEMP_FAILURE_RETRY(recvfrom(handle->iSocket, aBuffer, aBytes, MSG_NOSIGNAL, (struct sockaddr*)&addr, &addrLen));
+    int32_t received = TEMP_FAILURE_RETRY_2(recvfrom(handle->iSocket, aBuffer, aBytes, MSG_NOSIGNAL, (struct sockaddr*)&addr, &addrLen), handle);
     if (received==-1 && errno==EWOULDBLOCK) {
-        int32_t selectErr = TEMP_FAILURE_RETRY(select(nfds(handle), &read, NULL, &error, NULL));
+        int32_t selectErr = TEMP_FAILURE_RETRY_2(select(nfds(handle), &read, NULL, &error, NULL), handle);
         if (selectErr > 0 && FD_ISSET(handle->iSocket, &read)) {
-            received = TEMP_FAILURE_RETRY(recvfrom(handle->iSocket, aBuffer, aBytes, MSG_NOSIGNAL, (struct sockaddr*)&addr, &addrLen));
+            received = TEMP_FAILURE_RETRY_2(recvfrom(handle->iSocket, aBuffer, aBytes, MSG_NOSIGNAL, (struct sockaddr*)&addr, &addrLen), handle);
         }
     }
     SetFdBlocking(handle->iSocket);
@@ -893,11 +903,11 @@ THandle OsNetworkAccept(THandle aHandle, TIpAddress* aClientAddress, uint32_t* a
     FD_ZERO(&error);
     FD_SET(handle->iSocket, &error);
 
-    int32_t h = TEMP_FAILURE_RETRY(accept(handle->iSocket, (struct sockaddr*)&addr, &len));
+    int32_t h = TEMP_FAILURE_RETRY_2(accept(handle->iSocket, (struct sockaddr*)&addr, &len), handle);
     if (h==-1 && errno==EWOULDBLOCK) {
-        int32_t selectErr = TEMP_FAILURE_RETRY(select(nfds(handle), &read, NULL, &error, NULL));
+        int32_t selectErr = TEMP_FAILURE_RETRY_2(select(nfds(handle), &read, NULL, &error, NULL), handle);
         if (selectErr > 0 && FD_ISSET(handle->iSocket, &read)) {
-            h = TEMP_FAILURE_RETRY(accept(handle->iSocket, (struct sockaddr*)&addr, &len));
+            h = TEMP_FAILURE_RETRY_2(accept(handle->iSocket, (struct sockaddr*)&addr, &len), handle);
         }
     }
     SetFdBlocking(handle->iSocket);
@@ -1018,6 +1028,17 @@ int32_t OsNetworkSocketMulticastDropMembership(THandle aHandle, TIpAddress aInte
     err = setsockopt(handle->iSocket, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreq, sizeof(mreq));
     return err;
 }
+ 
+int32_t OsNetworkSocketSetMulticastIf(THandle aHandle,  TIpAddress aInterface)
+{
+#if defined(PLATFORM_MACOSX_GNU)
+    OsNetworkHandle* handle = (OsNetworkHandle*)aHandle;
+    int32_t err = setsockopt(handle->iSocket, IPPROTO_IP, IP_MULTICAST_IF, &aInterface, sizeof(aInterface));
+    return err;
+#else
+    return 0;
+#endif
+}
 
 int32_t OsNetworkListAdapters(OsContext* aContext, OsNetworkAdapter** aAdapters, uint32_t aUseLoopback)
 {
@@ -1035,9 +1056,6 @@ int32_t OsNetworkListAdapters(OsContext* aContext, OsNetworkAdapter** aAdapters,
     struct ifaddrs* networkIf;
     struct ifaddrs* iter;
     int32_t includeLoopback = 1;
-#ifdef PLATFORM_MACOSX_GNU
-    aUseLoopback = 0;
-#endif
     *aAdapters = NULL;
     if (TEMP_FAILURE_RETRY(getifaddrs(&networkIf)) == -1) {
         return -1;
@@ -1260,7 +1278,7 @@ void adapterChangeObserverThread(void* aPtr)
         FD_ZERO(&errfds);
         FD_SET(handle->iSocket, &errfds);
 
-        ret = TEMP_FAILURE_RETRY(select(nfds(handle), &rfds, NULL, &errfds, NULL));
+        ret = TEMP_FAILURE_RETRY_2(select(nfds(handle), &rfds, NULL, &errfds, NULL), handle);
         if ((ret > 0) && FD_ISSET(handle->iSocket, &rfds)) {
             nlh = (struct nlmsghdr *) buffer;
             if ((len = recv(handle->iSocket, nlh, 4096, 0)) > 0) {

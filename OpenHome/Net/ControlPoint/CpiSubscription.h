@@ -1,7 +1,7 @@
 #ifndef HEADER_CPISUBSCRIPTION
 #define HEADER_CPISUBSCRIPTION
 
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Net/Private/CpiService.h>
 #include <OpenHome/Private/Timer.h>
@@ -136,8 +136,9 @@ private:
     void DoRenew();
     void DoUnsubscribe();
     void SetRenewTimer(TUint aMaxSeconds);
-    void HandleResumed();
+    void Resubscribe();
     void NotifySubnetChanged();
+    void Suspend();
 private: // IEventProcessor
     void EventUpdateStart();
     void EventUpdate(const Brx& aName, const Brx& aValue, IOutputProcessor& aProcessor);
@@ -149,6 +150,7 @@ private: // from IStackObject
 private:
     OpenHome::Mutex iLock;
     OpenHome::Mutex iSubscriberLock;
+    mutable OpenHome::Mutex iSidLock;
     CpiDevice& iDevice;
     CpStack& iCpStack;
     Environment& iEnv;
@@ -162,6 +164,7 @@ private:
     TUint iRefCount;
     IInterruptHandler* iInterruptHandler;
     TBool iRejectFutureOperations;
+    TBool iSuspended;
 
     friend class CpiSubscriptionManager;
 };
@@ -193,7 +196,7 @@ class PendingSubscription;
 /**
  * Singleton which manages the pools of Subscriber and active Subscription instances
  */
-class CpiSubscriptionManager : public Thread, private IResumeObserver
+class CpiSubscriptionManager : public Thread, private IResumeObserver, private ISuspendObserver
 {
 public:
     CpiSubscriptionManager(CpStack& aCpStack);
@@ -214,6 +217,9 @@ public:
     void Schedule(CpiSubscription& aSubscription);
     void ScheduleLocked(CpiSubscription& aSubscription);
     TUint EventServerPort();
+    void RenewAll();
+private: // from ISuspendObserver
+    void NotifySuspended();
 private: // from IResumeObserver
     void NotifyResumed();
 private:

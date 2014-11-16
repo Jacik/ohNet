@@ -3,7 +3,7 @@
 // ... then checks how many times GetProtocolInfo can be run on each device in a second
 
 #include <OpenHome/Private/TestFramework.h>
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Net/Private/Discovery.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Private/Timer.h>
@@ -99,7 +99,7 @@ void DeviceList::TestSync()
 
 void DeviceList::Poll()
 {
-    Timer timer(*gEnv, MakeFunctor(*this, &DeviceList::TimerExpired));
+    Timer timer(*gEnv, MakeFunctor(*this, &DeviceList::TimerExpired), "TestInvocationStd");
     FunctorAsync callback = MakeFunctorAsync(*this, &DeviceList::GetProtocolInfoComplete);
     const TUint count = (TUint)iList.size();
     for (TUint i=0; i<count; i++) {

@@ -1,5 +1,5 @@
 #include <OpenHome/Private/NetworkAdapterList.h>
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/OsWrapper.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Private/Env.h>
@@ -55,11 +55,6 @@ NetworkAdapter* NetworkAdapterList::CurrentAdapter(const char* aCookie) const
     }
     iCurrent->AddRef(aCookie);
     return iCurrent;
-}
-
-const std::vector<NetworkAdapter*>& NetworkAdapterList::List() const
-{
-    return *iNetworkAdapters;
 }
 
 std::vector<NetworkAdapter*>* NetworkAdapterList::CreateSubnetList() const

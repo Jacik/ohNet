@@ -1,7 +1,7 @@
 #ifndef HEADER_BUFFER
 #define HEADER_BUFFER
 
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Exception.h>
 #include <OpenHome/Private/Standard.h>
 #include <cstdarg>
@@ -109,10 +109,11 @@ public:
     void Append(const Brx& aB);
     void Append(const TChar* aStr);
     void Append(const TByte* aPtr, TUint aBytes);
-    void Append(TUint16 aValue);
-    void Append(TInt16 aValue);
-    void Append(TUint32 aValue);
-    void Append(TInt32 aValue);
+    TBool TryAppend(TChar aChar);
+    TBool TryAppend(TByte aByte);
+    TBool TryAppend(const Brx& aB);
+    TBool TryAppend(const TChar* aStr);
+    TBool TryAppend(const TByte* aPtr, TUint aBytes);
     void AppendPrintf(const TChar* aFormatString, ...);
     void AppendPrintf(const TChar* aFormatString, va_list aArgs);
     const TChar* PtrZ() const;
@@ -122,7 +123,9 @@ public:
     inline TUint BytesRemaining() const;
     void SetBytes(TUint aBytes);
     inline TByte& operator[](TUint aByteIndex);
+    using Brx::operator[];
     TByte& At(TUint aByteIndex);
+    using Brx::At;
 protected:
     explicit Bwx(TUint aBytes, TUint aMaxBytes);
     TUint iMaxBytes;

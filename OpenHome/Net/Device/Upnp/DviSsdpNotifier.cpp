@@ -1,7 +1,7 @@
 #include <OpenHome/Net/Private/DviSsdpNotifier.h>
 #include <OpenHome/Net/Private/DviProtocolUpnp.h>
 #include <OpenHome/Private/Network.h>
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Env.h>
 #include <OpenHome/Net/Private/DviStack.h>
@@ -29,7 +29,7 @@ SsdpNotifierScheduler::SsdpNotifierScheduler(DvStack& aDvStack, ISsdpNotifyListe
     , iListener(aListener)
 {
     Functor functor = MakeFunctor(*this, &SsdpNotifierScheduler::SendNextMsg);
-    iTimer = new Timer(iDvStack.Env(), functor);
+    iTimer = new Timer(iDvStack.Env(), functor, "SsdpNotifierScheduler");
 }
 
 void SsdpNotifierScheduler::Start(TUint aDuration, TUint aMsgCount)

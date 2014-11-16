@@ -42,8 +42,10 @@ CpiDeviceUpnp::CpiDeviceUpnp(CpStack& aCpStack, const Brx& aUdn, const Brx& aLoc
     , iNewLocation(NULL)
     , iXmlCheck(NULL)
 {
+    Environment& env = aCpStack.Env();
+    iHostUdpIsLowQuality = env.InitParams()->IsHostUdpLowQuality();
     iDevice = new CpiDevice(aCpStack, aUdn, *this, *this, this);
-    iTimer = new Timer(aCpStack.Env(), MakeFunctor(*this, &CpiDeviceUpnp::TimerExpired));
+    iTimer = new Timer(env, MakeFunctor(*this, &CpiDeviceUpnp::TimerExpired), "CpiDeviceUpnp");
     UpdateMaxAge(aMaxAgeSecs);
     iInvocable = new Invocable(*this);
 }
@@ -219,6 +221,63 @@ void CpiDeviceUpnp::NotifyRemovedBeforeReady()
     iSemReady.Wait();
 }
 
+TUint CpiDeviceUpnp::Version(const TChar* aDomain, const TChar* aName, TUint /*aProxyVersion*/) const
+{
+    ServiceType serviceType(iDevice->GetCpStack().Env(), aDomain, aName, 0);
+    const Brx& targServiceType = serviceType.FullName();
+    // Must have backwards compatibility. Need to compare service type and version separately.
+    Parser serviceParser = targServiceType;
+    serviceParser.Next(':');    // urn
+    serviceParser.Next(':');    // schema url
+    serviceParser.Next(':');    // service
+    serviceParser.Next(':');    // name
+    Brn targServiceTypeNoVer(targServiceType.Ptr(), serviceParser.Index()); // full name minus ":x" (where x is version)
+
+    try {
+        Brn root = XmlParserBasic::Find("root", iXml);
+        Brn device = XmlParserBasic::Find("device", root);
+        Brn udn = XmlParserBasic::Find("UDN", device);
+        if (!CpiDeviceUpnp::UdnMatches(udn, Udn())) {
+            Brn deviceList = XmlParserBasic::Find("deviceList", device);
+            do {
+                Brn remaining;
+                device.Set(XmlParserBasic::Find("device", deviceList, remaining));
+                udn.Set(XmlParserBasic::Find("UDN", device));
+                deviceList.Set(remaining);
+            } while (!CpiDeviceUpnp::UdnMatches(udn, Udn()));
+        }
+        Brn serviceList = XmlParserBasic::Find("serviceList", device);
+        Brn service;
+        Brn serviceType;
+        Brn devServiceTypeNoVer;
+        for (;;) {
+            Brn remaining;
+            service.Set(XmlParserBasic::Find("service", serviceList, remaining));
+            serviceType.Set(XmlParserBasic::Find("serviceType", service));
+            serviceList.Set(remaining);
+            // Parse service type and version separately.
+            serviceParser.Set(serviceType);
+            serviceParser.Next(':');    // urn
+            serviceParser.Next(':');    // schema url
+            serviceParser.Next(':');    // service
+            serviceParser.Next(':');    // name
+            devServiceTypeNoVer.Set(serviceType.Ptr(), serviceParser.Index()); // full name minus ":x" (where x is version)
+            if (devServiceTypeNoVer == targServiceTypeNoVer) {
+                Brn devVersionBuf = serviceParser.NextToEnd();    // version
+                try {
+                    return Ascii::Uint(devVersionBuf);
+                }
+                catch (AsciiError&) {
+                    THROW(XmlError);
+                }
+            }
+        }
+    }
+    catch (XmlError&) {
+        return 0;
+    }
+}
+
 void CpiDeviceUpnp::Release()
 {
     delete this; // iDevice not deleted here; it'll delete itself when this returns
@@ -234,8 +293,15 @@ CpiDeviceUpnp::~CpiDeviceUpnp()
 
 void CpiDeviceUpnp::TimerExpired()
 {
-    iDevice->SetExpired(true);
-    iDeviceList.Remove(Udn());
+    if (iHostUdpIsLowQuality) {
+        LOG(kDevice, "TimerExpired ignored for device ");
+        LOG(kDevice, Udn());
+        LOG(kDevice, "\n");
+    }
+    else {
+        iDevice->SetExpired(true);
+        iDeviceList.Remove(Udn());
+    }
 }
 
 void CpiDeviceUpnp::GetServiceUri(Uri& aUri, const TChar* aType, const ServiceType& aServiceType)
@@ -255,13 +321,29 @@ void CpiDeviceUpnp::GetServiceUri(Uri& aUri, const TChar* aType, const ServiceTy
     Brn serviceList = XmlParserBasic::Find("serviceList", device);
     Brn service;
     Brn serviceType;
+    Brn devServiceTypeNoVer;
     const Brx& targServiceType = aServiceType.FullName();
+    // Must have backwards compatibility. Need to compare service type and version separately.
+    Parser serviceParser = targServiceType;
+    serviceParser.Next(':');    // urn
+    serviceParser.Next(':');    // schema url
+    serviceParser.Next(':');    // service
+    serviceParser.Next(':');    // name
+    Brn targServiceTypeNoVer(targServiceType.Ptr(), serviceParser.Index()); // full name minus ":x" (where x is version)
     do {
         Brn remaining;
         service.Set(XmlParserBasic::Find("service", serviceList, remaining));
         serviceType.Set(XmlParserBasic::Find("serviceType", service));
         serviceList.Set(remaining);
-    } while (serviceType != targServiceType);
+        // Parse service type and version separately.
+        serviceParser.Set(serviceType);
+        serviceParser.Next(':');    // urn
+        serviceParser.Next(':');    // schema url
+        serviceParser.Next(':');    // service
+        serviceParser.Next(':');    // name
+        devServiceTypeNoVer.Set(serviceType.Ptr(), serviceParser.Index()); // full name minus ":x" (where x is version)
+        // MUST allow use of device with version >= target version
+    } while (devServiceTypeNoVer != targServiceTypeNoVer);
     Brn path = XmlParserBasic::Find(aType, service);
     if (path.Bytes() == 0) {
         // no event url => service doesn't have any evented state variables
@@ -396,13 +478,15 @@ void CpiDeviceUpnp::Invocable::InvokeAction(Invocation& aInvocation)
 CpiDeviceListUpnp::CpiDeviceListUpnp(CpStack& aCpStack, FunctorCpiDevice aAdded, FunctorCpiDevice aRemoved)
     : CpiDeviceList(aCpStack, aAdded, aRemoved)
     , iSsdpLock("DLSM")
+    , iEnv(aCpStack.Env())
     , iStarted(false)
+    , iNoRemovalsFromRefresh(false)
 {
     NetworkAdapterList& ifList = aCpStack.Env().NetworkAdapterList();
-    AutoNetworkAdapterRef ref(aCpStack.Env(), "CpiDeviceListUpnp ctor");
+    AutoNetworkAdapterRef ref(iEnv, "CpiDeviceListUpnp ctor");
     const NetworkAdapter* current = ref.Adapter();
-    iRefreshTimer = new Timer(aCpStack.Env(), MakeFunctor(*this, &CpiDeviceListUpnp::RefreshTimerComplete));
-    iResumedTimer = new Timer(aCpStack.Env(), MakeFunctor(*this, &CpiDeviceListUpnp::ResumedTimerComplete));
+    iRefreshTimer = new Timer(iEnv, MakeFunctor(*this, &CpiDeviceListUpnp::RefreshTimerComplete), "DeviceListRefresh");
+    iResumedTimer = new Timer(iEnv, MakeFunctor(*this, &CpiDeviceListUpnp::ResumedTimerComplete), "DeviceListResume");
     iRefreshRepeatCount = 0;
     iInterfaceChangeListenerId = ifList.AddCurrentChangeListener(MakeFunctor(*this, &CpiDeviceListUpnp::CurrentNetworkAdapterChanged));
     iSubnetListChangeListenerId = ifList.AddSubnetListChangeListener(MakeFunctor(*this, &CpiDeviceListUpnp::SubnetListChanged));
@@ -520,8 +604,7 @@ void CpiDeviceListUpnp::Refresh()
     Mutex& lock = iCpStack.Env().Mutex();
     lock.Wait();
     /* Always attempt multiple refreshes.
-        Poor quality wifi (particularly on iOS) means that we risk MSEARCHes not being
-        sent otherwise, resulting in all devices being removed. */
+        Poor quality wifi (particularly on iOS) means that we risk MSEARCHes not being sent otherwise. */
     iRefreshRepeatCount = kRefreshRetries;
     lock.Signal();
     DoRefresh();
@@ -584,7 +667,8 @@ TBool CpiDeviceListUpnp::IsLocationReachable(const Brx& aLocation) const
 void CpiDeviceListUpnp::RefreshTimerComplete()
 {
     if (--iRefreshRepeatCount == 0) {
-        RefreshComplete();
+        RefreshComplete(!iNoRemovalsFromRefresh);
+        iNoRemovalsFromRefresh = false;
     }
     else {
         DoRefresh();
@@ -593,6 +677,7 @@ void CpiDeviceListUpnp::RefreshTimerComplete()
 
 void CpiDeviceListUpnp::ResumedTimerComplete()
 {
+    iNoRemovalsFromRefresh = iEnv.InitParams()->IsHostUdpLowQuality();
     Refresh();
 }
 

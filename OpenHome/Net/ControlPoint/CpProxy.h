@@ -2,7 +2,7 @@
 #define HEADER_SERVICE_PROXY
 
 #include <OpenHome/Functor.h>
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Exception.h>
 #include <OpenHome/Buffer.h>
 
@@ -59,6 +59,7 @@ private:
 class DllExportClass CpProxy : private IEventProcessor
 {
 public:
+    DllExport virtual ~CpProxy();
     /**
      * Subscribe to notification of changes in state variables.
      * Use SetProperty[stateVarName]Changed() to register a callback on change
@@ -85,19 +86,19 @@ public:
      * @param[in]  aFunctor  The callback to be run
      */
     DllExport void SetPropertyInitialEvent(Functor& aFunctor);
+    /**
+     * Query which service version the remote device implements.
+     *
+     * @return  Service version
+     */
+    DllExport TUint Version() const;
 protected:
     DllExport CpProxy(const TChar* aDomain, const TChar* aName, TUint aVersion, CpiDevice& aDevice);
-    DllExport virtual ~CpProxy();
 
     /**
-     * Lock properties for reading.  Intended for use before reading a property's value.
+     * Lock for properties reading.  Intended for use around reads of a property's value.
      */
-    DllExport void PropertyReadLock() const;
-    /**
-     * Signal that reading of a property's value has completed.
-     * Must be called once for each call to PropertyReadLock().
-     */
-    DllExport void PropertyReadUnlock() const;
+    DllExport Mutex& PropertyReadLock() const;
     /**
      * Add a property (aka state variable) to the service
      * Passes ownership of aProperty

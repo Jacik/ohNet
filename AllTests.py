@@ -38,8 +38,12 @@ def buildArgs():
         buildArgs += ' iOs-x86=1'
     if gAndroid == 1:
         buildArgs += ' Android-anycpu=1'
+    if gQnap == 1:
+        buildArgs += ' Qnap-anycpu=1'
     if gCore == 1:
         buildArgs += ' platform=' + gPlatform
+    if gNativeTestsOnly == 1:
+        buildArgs += ' native_only=yes'
     return buildArgs
 
 def build(aTarget, aParallel=False):
@@ -197,6 +201,7 @@ gMac64 = 0
 giOsArmv7 = 0
 giOsx86 = 0
 gAndroid = 0
+gQnap = 0
 try:
     gPlatform = os.environ['PLATFORM']
 except KeyError:
@@ -253,6 +258,8 @@ for arg in sys.argv[1:]:
         gCore = 1
     elif arg == '--Android-anycpu':
         gAndroid = 1
+    elif arg == '--Qnap-anycpu':
+        gQnap = 1;
     else:
         print 'Unrecognised argument - ' + arg
         sys.exit(1)
@@ -278,7 +285,9 @@ class TestCase(object):
         return path
 
 gAllTests = [ TestCase('TestBuffer', [], True)
+             ,TestCase('TestStream', [], True)
              ,TestCase('TestThread', [], True)
+             ,TestCase('TestFunctorGeneric', [], True)
              ,TestCase('TestFifo', [], True)
              ,TestCase('TestFile', [], True)
              ,TestCase('TestQueue', [], True)
@@ -287,6 +296,7 @@ gAllTests = [ TestCase('TestBuffer', [], True)
              #,TestCase('TestTimer', [])
              ,TestCase('TestHttpReader', [], True)
              ,TestCase('TestSsdpMListen', ['-d', '10'], True)
+             ,TestCase('TestXmlParser', [], True)
              ,TestCase('TestSsdpUListen', ['-t', 'av.openhome.org:service:Radio:1'], True)
              ,TestCase('TestDeviceList', ['-t', 'av.openhome.org:service:Radio:1', '-f'], True)
              ,TestCase('TestDeviceListStd', ['-t', 'av.openhome.org:service:Radio:1', '-f'], True)

@@ -13,7 +13,7 @@
 #ifndef HEADER_FUNCTOR
 #define HEADER_FUNCTOR
 
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <stddef.h>
 #include <string.h>
 
@@ -35,8 +35,23 @@ public:
     operator TBool() const { return (iCallback || iObject); }
     typedef TAny (Functor::*MemberFunction)();
     typedef TAny (*Callback)();
-    Functor() : iCallback(0), iObject(0) {}
+    Functor() : iCallback(0), iObject(0)
+    {
+        memset(iCallbackMember, 0, sizeof(iCallbackMember));
+    }
     static const TUint kFudgeFactor = 2;
+
+    bool operator==(const Functor& aOther) const
+    {
+        return ((iObject == aOther.iObject) &&
+                (iCallback == aOther.iCallback) &&
+                (!memcmp(iCallbackMember, aOther.iCallbackMember, sizeof(iCallbackMember))));
+    }
+
+    bool operator!=(const Functor& aOther) const
+    {
+        return !(*this == aOther);
+    }
 
     union {
         OhNetFunctor iCallback;
@@ -50,12 +65,14 @@ protected:
         : iThunk(aT)
     {
         iObject = (TAny*)aObject;
+        memset(iCallbackMember, 0, sizeof(iCallbackMember));
         memcpy(iCallbackMember, aCallback, aBytes);
     }
     Functor(Thunk aT, const TAny* aObject, OhNetFunctor aCallback)
         : iThunk(aT)
     {
         iObject = (TAny*)aObject;
+        memset(iCallbackMember, 0, sizeof(iCallbackMember));
         iCallback = aCallback;
     }
 
@@ -138,6 +155,87 @@ MakeFunctor(const Object& aC, TRT(CallType::* const &aF)() const)
     {
     typedef TRT(CallType::*MemFunc)()const;
     return MemberTranslator<const Object,MemFunc>(aC,aF);
+    }
+
+
+template<class Type>
+/**
+ * Generic callback with one argument
+ *
+ * Can be implemented using a pointer to a member function
+ * @ingroup Callbacks
+ */
+class FunctorGeneric
+{
+public:
+    void operator()(Type aType) const { iThunk(*this, aType); }
+    operator TBool() const { return (iObject!=NULL); }
+    typedef TAny (FunctorGeneric::*MemberFunction)();
+    static const TUint kFudgeFactor = 2;
+
+    bool operator==(const FunctorGeneric& aOther) const
+    {
+        return ((iObject == aOther.iObject) &&
+                (!memcmp(iCallbackMember, aOther.iCallbackMember, sizeof(iCallbackMember))));
+    }
+
+    bool operator!=(const FunctorGeneric& aOther) const
+    {
+        return !(*this == aOther);
+    }
+
+    FunctorGeneric() : iObject(0)
+    {
+        memset(iCallbackMember, 0 , sizeof(iCallbackMember));
+    }
+
+    TByte iCallbackMember[kFudgeFactor * sizeof(MemberFunction)];
+    TAny* iObject;
+
+protected:
+    typedef void (*Thunk)(const FunctorGeneric&, Type);
+    FunctorGeneric(Thunk aT, const TAny* aObject, const TAny* aCallback, TUint aBytes)
+        : iThunk(aT)
+    {
+        iObject = (TAny*)aObject;
+        memcpy(iCallbackMember, aCallback, aBytes);
+    }
+
+private:
+    Thunk iThunk;
+};
+
+
+template<class Type, class Object, class MemFunc>
+class MemberTranslatorGeneric : public FunctorGeneric<Type>
+{
+public:
+    MemberTranslatorGeneric(Object& aC, const MemFunc& aM) :
+        FunctorGeneric<Type>(Thunk,&aC,&aM,sizeof(MemFunc)) {}
+    static void Thunk(const FunctorGeneric<Type>& aFb, Type aType)
+    {
+        Object* object = (Object*)aFb.iObject;
+        MemFunc& memFunc(*(MemFunc*)(TAny*)(aFb.iCallbackMember));
+        (object->*memFunc)(aType);
+    }
+};
+
+template<class Type, class Object, class CallType>
+/**
+ * Create a FunctorGeneric around a non-const C++ member function
+ *
+ * @ingroup Callbacks
+ *
+ * @param[in] aC        this pointer for the callback
+ * @param[in] aF        Pointer to a non-const member function taking one argument
+ *
+ * @return  a Functor object
+ */
+inline MemberTranslatorGeneric<Type,Object,void (CallType::*)(Type)>
+MakeFunctorGeneric(Object& aC, void(CallType::* const &aF)(Type))
+    {
+    typedef void(CallType::*MemFunc)(Type);
+    return MemberTranslatorGeneric<Type,Object,MemFunc>(aC,aF);
     }
 
 } // namespace OpenHome

@@ -8,6 +8,7 @@
 #include <OpenHome/MimeTypes.h>
 #include <OpenHome/Private/Timer.h>
 #include <OpenHome/Net/Private/Globals.h>
+#include <OpenHome/Private/Debug.h>
 
 #ifdef PLATFORM_MACOSX_GNU
 # include <sys/time.h>
@@ -66,6 +67,11 @@ Environment::Environment(FunctorMsg& aLogOutput)
     Construct(aLogOutput);
 }
 
+Environment* Environment::Create(FunctorMsg& aLogOutput)
+{
+    return new Environment(aLogOutput);
+}
+
 Environment::Environment(InitialisationParams* aInitParams)
     : iOsContext(NULL)
     , iInitParams(aInitParams)
@@ -106,6 +112,11 @@ Environment::Environment(InitialisationParams* aInitParams)
     }
 }
 
+Environment* Environment::Create(InitialisationParams* aInitParams)
+{
+    return new Environment(aInitParams);
+}
+
 void Environment::Construct(FunctorMsg& aLogOutput)
 {
     gEnv = this;
@@ -116,7 +127,7 @@ void Environment::Construct(FunctorMsg& aLogOutput)
     iLogger = new Log(aLogOutput);
     iPublicLock = new OpenHome::Mutex("GMUT");
     iPrivateLock = new OpenHome::Mutex("ENVP");
-    iResumeObserverLock = new OpenHome::Mutex("ENVR");
+    iSuspendResumeObserverLock = new OpenHome::Mutex("ENVR");
 }
 
 Environment::~Environment()
@@ -136,8 +147,9 @@ Environment::~Environment()
     delete iInitParams;
     delete iPublicLock;
     delete iPrivateLock;
+    ASSERT(iSuspendObservers.size() == 0);
     ASSERT(iResumeObservers.size() == 0);
-    delete iResumeObserverLock;
+    delete iSuspendResumeObserverLock;
     delete iLogger;
     Os::Destroy(iOsContext);
 }
@@ -209,32 +221,62 @@ void Environment::MulticastListenerRelease(TIpAddress aInterface)
     iPrivateLock->Signal();
 }
 
+void Environment::AddSuspendObserver(ISuspendObserver& aObserver)
+{
+    iSuspendResumeObserverLock->Wait();
+    iSuspendObservers.push_back(&aObserver);
+    iSuspendResumeObserverLock->Signal();
+}
+
 void Environment::AddResumeObserver(IResumeObserver& aObserver)
 {
-    iResumeObserverLock->Wait();
+    iSuspendResumeObserverLock->Wait();
     iResumeObservers.push_back(&aObserver);
-    iResumeObserverLock->Signal();
+    iSuspendResumeObserverLock->Signal();
+}
+
+void Environment::RemoveSuspendObserver(ISuspendObserver& aObserver)
+{
+    iSuspendResumeObserverLock->Wait();
+    for (TUint i=0; i<iSuspendObservers.size(); i++) {
+        if (iSuspendObservers[i] == &aObserver) {
+            iSuspendObservers.erase(iSuspendObservers.begin() + i);
+            break;
+        }
+    }
+    iSuspendResumeObserverLock->Signal();
 }
 
 void Environment::RemoveResumeObserver(IResumeObserver& aObserver)
 {
-    iResumeObserverLock->Wait();
+    iSuspendResumeObserverLock->Wait();
     for (TUint i=0; i<iResumeObservers.size(); i++) {
         if (iResumeObservers[i] == &aObserver) {
             iResumeObservers.erase(iResumeObservers.begin() + i);
             break;
         }
     }
-    iResumeObserverLock->Signal();
+    iSuspendResumeObserverLock->Signal();
+}
+
+void Environment::NotifySuspended()
+{
+    LOG(kTrace, "NotifySuspended\n");
+    iSuspendResumeObserverLock->Wait();
+    for (TUint i=0; i<iSuspendObservers.size(); i++) {
+        iSuspendObservers[i]->NotifySuspended();
+    }
+    iSuspendResumeObserverLock->Signal();
 }
 
 void Environment::NotifyResumed()
 {
-    iResumeObserverLock->Wait();
+    LOG(kTrace, "NotifyResumed\n");
+    iSuspendResumeObserverLock->Wait();
     for (TUint i=0; i<iResumeObservers.size(); i++) {
         iResumeObservers[i]->NotifyResumed();
     }
-    iResumeObserverLock->Signal();
+    iSuspendResumeObserverLock->Signal();
 }
 
 TUint Environment::SequenceNumber()
@@ -321,6 +363,12 @@ IStack* Environment::CpiStack()
 IStack* Environment::DviStack()
 {
     return iDvStack;
+}
+
+void Environment::SetInitParams(InitialisationParams* aInitParams)
+{
+    delete iInitParams;
+    iInitParams = aInitParams;
 }
 
 

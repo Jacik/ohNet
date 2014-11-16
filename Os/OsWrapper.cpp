@@ -1,4 +1,4 @@
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Exception.h>
 #include <OpenHome/OsWrapper.h>
 #include <OpenHome/Os.h>
@@ -174,6 +174,15 @@ void OpenHome::Os::NetworkSocketMulticastDropMembership(THandle aHandle, TIpAddr
     int32_t err = OsNetworkSocketMulticastDropMembership(aHandle, aInterface, aAddress);
     if(err != 0) {
         LOG2F(kNetwork, kError, "Os::OsNetworkSocketMulticastDropMembership H = %d, RETURN VALUE = %d\n", aHandle, err);
+        THROW(NetworkError);
+    }
+}
+
+void OpenHome::Os::NetworkSocketSetMulticastIf(THandle aHandle, TIpAddress aInterface)
+{
+    int32_t err = OsNetworkSocketSetMulticastIf(aHandle, aInterface);
+    if(err != 0) {
+        LOG2F(kNetwork, kError, "Os::OsNetworkSocketSetMulticastIf H = %d, RETURN VALUE = %d\n", aHandle, err);
         THROW(NetworkError);
     }
 }

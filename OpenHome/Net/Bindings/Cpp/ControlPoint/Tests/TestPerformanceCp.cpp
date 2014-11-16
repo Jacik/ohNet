@@ -1,6 +1,6 @@
 #include <OpenHome/Private/TestFramework.h>
 #include <OpenHome/Private/OptionParser.h>
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Net/Core/OhNet.h>
 #include <OpenHome/Functor.h>
 #include <OpenHome/Private/Timer.h>
@@ -55,7 +55,7 @@ PerformanceTests::PerformanceTests(uint32_t aTimeoutSecs)
     , iDeviceList(NULL)
     , iDevice(NULL)
 {
-    iTimer = new Timer(*gEnv, MakeFunctor(*this, &PerformanceTests::TimerExpired));
+    iTimer = new Timer(*gEnv, MakeFunctor(*this, &PerformanceTests::TimerExpired), "TestPerformanceCp");
 }
 
 PerformanceTests::~PerformanceTests()

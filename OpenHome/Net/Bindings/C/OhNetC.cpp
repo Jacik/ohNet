@@ -6,6 +6,8 @@
 #include <OpenHome/Private/Debug.h>
 #include <OpenHome/Net/Private/Globals.h>
 #include <OpenHome/OsWrapper.h>
+#include <OpenHome/Net/Private/CpiStack.h>
+#include <OpenHome/Net/Private/CpiSubscription.h>
 
 #include <stdlib.h>
 
@@ -47,9 +49,20 @@ void STDCALL OhNetLibraryClose()
     UpnpLibrary::Close();
 }
 
+void STDCALL OhNetLibraryNotifySuspended(void)
+{
+    UpnpLibrary::NotifySuspended();
+}
+
 void STDCALL OhNetLibraryNotifyResumed(void)
 {
     UpnpLibrary::NotifyResumed();
+}
+
+void STDCALL OhNetLibraryRenewSubscriptions(void)
+{
+    ASSERT(gCpStack != NULL);
+    gCpStack->SubscriptionManager().RenewAll();
 }
 
 void STDCALL OhNetFree(void* aPtr)
@@ -208,6 +221,12 @@ void STDCALL OhNetInitParamsSetUseLoopbackNetworkAdapter(OhNetHandleInitParams a
 {
     InitialisationParams* ip = reinterpret_cast<InitialisationParams*>(aParams);
     ip->SetUseLoopbackNetworkAdapter();
+}
+
+void STDCALL OhNetInitParamsSetIncludeLoopbackNetworkAdapter(OhNetHandleInitParams aParams)
+{
+    InitialisationParams* ip = reinterpret_cast<InitialisationParams*>(aParams);
+    ip->SetIncludeLoopbackNetworkAdapter();
 }
 
 void STDCALL OhNetInitParamsSetDvMaxUpdateTime(OhNetHandleInitParams aParams, uint32_t aSecs)

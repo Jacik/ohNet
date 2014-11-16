@@ -6,7 +6,7 @@ import os
 from collections import namedtuple
 
 def exclude_non_binary(filename):
-    if filename.lower().startswith("test"):
+    if filename.lower().startswith("test") and not filename.lower().startswith("testframework"):
         return True
     executable_extensions = [".dll", ".so", ".elf", ".lib", ".map", ".pdb", ".dylib", ".a", ".jar"]
     has_executable_extension = any(filename.endswith(ex) for ex in executable_extensions)
@@ -49,6 +49,11 @@ ALL_TARGETS = {
         BuildTarget("Linux",   "armel", "Release"): BuildInfo(builddir="Build/Obj/Posix/Release"),
         BuildTarget("Linux",   "armhf", "Release"): BuildInfo(builddir="Build/Obj/Posix/Release"),
         BuildTarget("Linux",   "ppc32", "Release"): BuildInfo(builddir="Build/Obj/Posix/Release"),
+        
+        BuildTarget("Qnap",   "x86",    "Debug"):   BuildInfo(builddir="Build/Obj/Posix/Debug"),
+        BuildTarget("Qnap",   "x86",    "Release"): BuildInfo(builddir="Build/Obj/Posix/Release"),
+        BuildTarget("Qnap",   "armel",  "Debug"):   BuildInfo(builddir="Build/Obj/Posix/Debug"),
+        BuildTarget("Qnap",   "armel",  "Release"): BuildInfo(builddir="Build/Obj/Posix/Release"),
 
         BuildTarget("Mac",     "x86",   "Debug"):   BuildInfo(builddir="Build/Obj/Mac-x86/Debug"),
         BuildTarget("Mac",     "x64",   "Debug"):   BuildInfo(builddir="Build/Obj/Mac-x64/Debug"),
@@ -119,6 +124,7 @@ def main():
     t4dir = "Build/Tools"
     templateDir = "OpenHome/Net/T4/Templates"
     uisdkDir = "OpenHome/Net/Bindings/Js/ControlPoint"
+    pyDir = "OpenHome/Net/Bindings/Python/PyOhNet"
 
     #if release_type == 'debug':
     #    builddir = os.path.join(builddir, 'Debug')
@@ -146,6 +152,7 @@ def main():
         recursively_add_directory(tf, t4dir, bundle_fileprefix + "/lib/t4")
         recursively_add_directory(tf, templateDir, bundle_fileprefix + "/lib/t4")
         recursively_add_directory(tf, uisdkDir, bundle_fileprefix + "/lib/ui")
+        recursively_add_directory(tf, pyDir, bundle_fileprefix + "/lib/PyOhNet")
 
 if __name__ == "__main__":
     main()

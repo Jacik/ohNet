@@ -1,7 +1,7 @@
 #include <OpenHome/Net/Private/CpiDeviceDv.h>
 #include <OpenHome/Net/Private/DviDevice.h>
 #include <OpenHome/Net/Private/DviService.h>
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Net/Private/CpiService.h>
 #include <OpenHome/Net/Private/CpiSubscription.h>
@@ -110,6 +110,13 @@ void CpiDeviceDv::Unsubscribe(CpiSubscription& aSubscription, const Brx& aSid)
 
 void CpiDeviceDv::NotifyRemovedBeforeReady()
 {
+}
+
+TUint CpiDeviceDv::Version(const TChar* /*aDomain*/, const TChar* /*aName*/, TUint aProxyVersion) const
+{
+    return aProxyVersion; /* FIXME - could use DviDevice to determine actual version of service
+                             Since we're in the same binary as that service, it isn't unusual to
+                             expect cp to know which dv versions it is talking to however... */
 }
 
 void CpiDeviceDv::Release()

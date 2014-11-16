@@ -1,7 +1,7 @@
 #ifndef HEADER_SHELL
 #define HEADER_SHELL
 
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Exception.h>
 #include <OpenHome/Private/Network.h>
@@ -62,10 +62,11 @@ class Shell : private IShellCommandHandler
 {
     friend class ShellCommandHelp;
 public:
-    static const TUint kServerPort = 2323;
+    static const TUint kServerPortDefault = 2323;
 public:
-    Shell(Environment& aStack);
+    Shell(Environment& aStack, TUint aPort=kServerPortDefault);
     ~Shell();
+    TUint Port() const;
     void AddCommandHandler(const TChar* aCommand, IShellCommandHandler& aHandler);
     void RemoveCommandHandler(const TChar* aCommand);
 private: // from IShellCommandHandler

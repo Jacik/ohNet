@@ -619,6 +619,23 @@ void SuiteAutoMutex::Test()
 }
 
 
+class SuiteAutoSemaphore : public Suite
+{
+public:
+    SuiteAutoSemaphore() : Suite("AutoSemaphore functionality") {}
+    void Test();
+};
+
+void SuiteAutoSemaphore::Test()
+{
+    Semaphore sem("asem", 1);
+    {
+        AutoSemaphore _(sem);
+        TEST(!sem.Clear());
+    }
+    TEST(sem.Clear());
+}
+
 class ThreadKillable : public Thread
 {
 public:
@@ -662,6 +679,174 @@ void SuiteThreadKill::Test()
     delete th;
 }
 
+class ThreadDummy : public Thread
+{
+public:
+    ThreadDummy(TUint aPriority = kPriorityNormal) : Thread("DUMM", aPriority) {}
+public: // from Thread
+    void Run() {}
+};
+
+
+class SuiteThreadNotStarted : public Suite
+{
+public:
+    SuiteThreadNotStarted() : Suite("Thread not started") {}
+    void Test();
+};
+
+void SuiteThreadNotStarted::Test()
+{
+    Thread* th = new ThreadDummy();
+    delete th;
+
+    // Successful completion of this test signifies that Threads can be deleted
+    // without having been Start()ed.
+}
+
+// A saw wave of priorities. For fun, and also to make StartDelete code more readable.
+class PrioSaw
+{
+public:
+    PrioSaw(TUint aPrioMin, TUint aPrioMax)
+    : iPrioMin(aPrioMin)
+    , iPrioMax(aPrioMax)
+    , iPrioCurrent(iPrioMin)
+    , iStep(1)
+    {
+        ASSERT(iPrioMin < iPrioMax);
+    }
+    TUint Next()
+    {
+        TUint prio = iPrioCurrent;
+        iPrioCurrent += iStep;
+        if ( iPrioCurrent == iPrioMin || iPrioCurrent == iPrioMax ) {
+            iStep *= -1;
+        }
+        return prio;
+    }
+private:
+    TUint iPrioMin;
+    TUint iPrioMax;
+    TUint iPrioCurrent;
+    TInt iStep;
+};
+
+class SuiteThreadStartDelete : public Suite
+{
+private:
+    static const TUint kThreadCount = 10000;
+    static const TUint kUpdateInterval = 100;
+public:
+    SuiteThreadStartDelete() : Suite("Thread start and delete cycle") {}
+    void Test();
+};
+
+void SuiteThreadStartDelete::Test()
+{
+    PrioSaw ps(kPrioritySystemLowest, kPrioritySystemHighest);
+
+    for (TUint i=0; i< kThreadCount; i++) {
+        Thread* th = new ThreadDummy(ps.Next());
+        th->Start();
+        delete th;
+
+        if (i % kUpdateInterval == 0) {
+            TEST(true); // only to show progress
+            Thread::Sleep(100); // FreeRTOS delegates freeing of thread resources to the idle thread. We allow it to run here.
+        }
+    }
+}
+
+
+class SuiteThreadFunctor : public Suite
+{
+public:
+    SuiteThreadFunctor() : Suite("ThreadFunctor") {}
+    void Test();
+private:
+    void Run();
+private:
+    Semaphore* iSem;
+    ThreadFunctor* iFunctor;
+};
+
+void SuiteThreadFunctor::Test()
+{
+    iSem = new Semaphore("", 0);
+    iFunctor = new ThreadFunctor("STFF", MakeFunctor(*this, &SuiteThreadFunctor::Run));
+    iFunctor->Start();
+    iSem->Wait();
+    delete iFunctor;
+    delete iSem;
+}
+
+void SuiteThreadFunctor::Run()
+{
+    try {
+        TEST(iFunctor->TryWait() == false);
+        iFunctor->Signal();
+        TEST(iFunctor->TryWait() == true);
+        iFunctor->CheckCurrentForKill();
+        iFunctor->Kill();
+        TEST_THROWS(iFunctor->CheckCurrentForKill(), ThreadKill);
+        TEST_THROWS(iFunctor->Wait(), ThreadKill);
+        TEST_THROWS(iFunctor->TryWait(), ThreadKill);
+    }
+    catch(ThreadKill&) {
+        ASSERT(0);
+    }
+    iSem->Signal();
+}
+
+
+class SuiteThreadFunctorNotStarted : public Suite
+{
+public:
+    SuiteThreadFunctorNotStarted() : Suite("ThreadFunctor not started") {}
+    void Test();
+private:
+    void Run() {}
+};
+
+void SuiteThreadFunctorNotStarted::Test()
+{
+    ThreadFunctor* tf = new ThreadFunctor("STFF", MakeFunctor(*this, &SuiteThreadFunctorNotStarted::Run));
+    delete tf;
+
+    // Successful completion of this test signifies that ThreadFunctors can be
+    // deleted without having been Start()ed.
+}
+
+
+class SuiteThreadFunctorStartDelete : public Suite
+{
+private:
+    static const TUint kThreadCount = 10000;
+    static const TUint kUpdateInterval = 100;
+public:
+    SuiteThreadFunctorStartDelete() : Suite("ThreadFunctor start and delete cycle") {}
+    void Test();
+private:
+    void Run() {}
+};
+
+void SuiteThreadFunctorStartDelete::Test()
+{
+    PrioSaw ps(kPrioritySystemLowest, kPrioritySystemHighest);
+
+    for (TUint i=0; i< kThreadCount; i++) {
+        ThreadFunctor* tf = new ThreadFunctor("TFSD", MakeFunctor(*this, &SuiteThreadFunctorStartDelete::Run), ps.Next());
+        tf->Start();
+        delete tf;
+
+        if (i % kUpdateInterval == 0) {
+            TEST(true); // only to show progress
+            Thread::Sleep(100); // FreeRTOS delegates freeing of thread resources to the idle thread. We allow it to run here.
+        }
+    }
+}
+
 
 class MainTestThread : public Thread
 {
@@ -676,11 +861,17 @@ void MainTestThread::Run()
     runner.Add(new SuiteSemaphore());
     runner.Add(new SuiteMutex());
     runner.Add(new SuiteAutoMutex());
+    runner.Add(new SuiteAutoSemaphore());
     runner.Add(new SuiteStartStop());
     // Performance tests disabled as they cause intermittent failures for automated tests
     // (which run on servers with variable loads)
     //runner.Add(new SuitePerformance());
     runner.Add(new SuiteThreadKill());
+    runner.Add(new SuiteThreadNotStarted());
+    runner.Add(new SuiteThreadStartDelete());
+    runner.Add(new SuiteThreadFunctor());
+    runner.Add(new SuiteThreadFunctorNotStarted());
+    runner.Add(new SuiteThreadFunctorStartDelete());
     if (OpenHome::Thread::SupportsPriorities())
     {
         runner.Add(new SuitePriority());

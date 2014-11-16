@@ -2,7 +2,7 @@
 #include <OpenHome/Net/Core/CpDevice.h>
 #include <OpenHome/Net/C/CpProxyCPrivate.h>
 #include <OpenHome/Net/Core/FunctorAsync.h>
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Exception.h>
 #include <OpenHome/Functor.h>
@@ -1569,42 +1569,37 @@ void CpProxyOpenhomeOrgTestBasic1C::SetPropertyVarBinChanged(Functor& aFunctor)
 
 void CpProxyOpenhomeOrgTestBasic1C::PropertyVarUint(TUint& aVarUint) const
 {
-    PropertyReadLock();
+    AutoMutex a(GetPropertyReadLock());
     ASSERT(IsSubscribed());
     aVarUint = iVarUint->Value();
-    PropertyReadUnlock();
 }
 
 void CpProxyOpenhomeOrgTestBasic1C::PropertyVarInt(TInt& aVarInt) const
 {
-    PropertyReadLock();
+    AutoMutex a(GetPropertyReadLock());
     ASSERT(IsSubscribed());
     aVarInt = iVarInt->Value();
-    PropertyReadUnlock();
 }
 
 void CpProxyOpenhomeOrgTestBasic1C::PropertyVarBool(TBool& aVarBool) const
 {
-    PropertyReadLock();
+    AutoMutex a(GetPropertyReadLock());
     ASSERT(IsSubscribed());
     aVarBool = iVarBool->Value();
-    PropertyReadUnlock();
 }
 
 void CpProxyOpenhomeOrgTestBasic1C::PropertyVarStr(Brhz& aVarStr) const
 {
-    PropertyReadLock();
+    AutoMutex a(GetPropertyReadLock());
     ASSERT(IsSubscribed());
     aVarStr.Set(iVarStr->Value());
-    PropertyReadUnlock();
 }
 
 void CpProxyOpenhomeOrgTestBasic1C::PropertyVarBin(Brh& aVarBin) const
 {
-    PropertyReadLock();
+    AutoMutex a(GetPropertyReadLock());
     ASSERT(IsSubscribed());
     aVarBin.Set(iVarBin->Value());
-    PropertyReadUnlock();
 }
 
 void CpProxyOpenhomeOrgTestBasic1C::VarUintPropertyChanged()

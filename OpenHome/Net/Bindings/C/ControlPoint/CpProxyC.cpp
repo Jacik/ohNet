@@ -32,6 +32,7 @@ CpProxyC::~CpProxyC()
 THandle STDCALL CpProxyCreate(const char* aDomain, const char* aName, uint32_t aVersion, CpDeviceC aDevice)
 {
     CpiDevice* device = reinterpret_cast<CpiDevice*>(aDevice);
+    ASSERT(device != NULL);
     return new CpProxyC(aDomain, aName, aVersion, *device);
 }
 
@@ -44,6 +45,7 @@ void STDCALL CpProxyDestroy(THandle aProxy)
 THandle STDCALL CpProxyService(THandle aProxy)
 {
     CpProxyC* proxyC = reinterpret_cast<CpProxyC*>(aProxy);
+    ASSERT(proxyC != NULL);
     return (THandle)proxyC->Service();
 }
 
@@ -75,6 +77,13 @@ void STDCALL CpProxySetPropertyInitialEvent(THandle aHandle, OhNetCallback aCall
     ASSERT(proxyC != NULL);
     Functor functor = MakeFunctor(aPtr, aCallback);
     proxyC->SetPropertyInitialEvent(functor);
+}
+
+TUint STDCALL CpProxyVersion(THandle aHandle)
+{
+    CpProxyC* proxyC = reinterpret_cast<CpProxyC*>(aHandle);
+    ASSERT(proxyC != NULL);
+    return proxyC->Version();
 }
 
 void STDCALL CpProxyPropertyReadLock(THandle aHandle)

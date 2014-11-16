@@ -10,9 +10,6 @@
 #include <Ws2tcpip.h>
 #include <Iphlpapi.h>
 #include <Dbghelp.h>
-#if NTDDI_VERSION > 0x06010000
-# include <versionhelpers.h>
-#endif
 
 static const uint32_t kMinStackBytes = 1024 * 16;
 static const uint32_t kStackPaddingBytes = 1024 * 16;
@@ -126,11 +123,6 @@ void OsQuit(OsContext* aContext)
 {
     UNUSED(aContext);
     abort();
-}
-
-void OsBreakpoint(OsContext* aContext)
-{
-    UNUSED(aContext);
 }
 
 #define STACK_TRACE_MAX_DEPTH 32
@@ -259,10 +251,12 @@ void OsGetPlatformNameAndVersion(OsContext* aContext, char** aName, uint32_t* aM
 #else
     /* There doesn't seem to be any reliable way to determine version info on Windows 8.1 and beyond
        The recommended route appears to be to add ever more IsWindowsXxx tests as new OS versions are released... */
+	/* The recommended route doesn't appear to always work.
+	   Reporting host OS version has questionable benefit anyway so just hard-code something credible. */
     UNUSED(aContext);
     *aName = "Windows";
     *aMajor = 6;
-    *aMinor = (IsWindows8Point1OrGreater()? 3 : 2);
+    *aMinor = 3;
 #endif
 }
 
@@ -726,9 +720,10 @@ int32_t OsNetworkReceiveFrom(THandle aHandle, uint8_t* aBuffer, uint32_t aBytes,
         handles[0] = event;
         handles[1] = handle->iEvent;
         ret = WSAWaitForMultipleEvents(2, &handles[0], FALSE, INFINITE, FALSE);
-        if (WAIT_OBJECT_0 != ret) {
+        if (SocketInterrupted(handle)) {
             break;
         }
+        (void)WSAResetEvent(event);
         received = recvfrom(handle->iSocket, (char*)aBuffer, aBytes, 0, (struct sockaddr*)&addr, &len);
     }
 
@@ -831,14 +826,15 @@ THandle OsNetworkAccept(THandle aHandle, TIpAddress* aClientAddress, uint32_t* a
 int32_t OsNetworkGetHostByName(const char* aAddress, TIpAddress* aHost)
 {
     int32_t ret = 0;
-    struct hostent* dns = gethostbyname(aAddress);
-    if (NULL == dns) {
+    struct addrinfo *results = NULL;
+    ret = getaddrinfo(aAddress, "", NULL, &results);
+    if (results == NULL) {
         ret = -1;
     }
     else {
-        *aHost = *((uint32_t*)(dns->h_addr_list[0]));
+        *aHost = ((struct sockaddr_in*)results[0].ai_addr)->sin_addr.s_addr;
+        freeaddrinfo(results);
     }
-
     return ret;
 }
 
@@ -919,6 +915,13 @@ int32_t OsNetworkSocketMulticastDropMembership(THandle aHandle, TIpAddress aInte
     mreq.imr_multiaddr.s_addr = aAddress;
     mreq.imr_interface.s_addr = aInterface;
     err = setsockopt(handle->iSocket, IPPROTO_IP, IP_DROP_MEMBERSHIP, (const char*)&mreq, sizeof(mreq));
+    return err;
+}
+
+int32_t OsNetworkSocketSetMulticastIf(THandle aHandle,  TIpAddress aInterface)
+{
+    OsNetworkHandle* handle = (OsNetworkHandle*)aHandle;
+    int32_t err = setsockopt(handle->iSocket, IPPROTO_IP, IP_MULTICAST_IF, (const char*)&aInterface, sizeof(aInterface));
     return err;
 }
 

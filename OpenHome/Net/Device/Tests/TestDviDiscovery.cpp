@@ -1,6 +1,6 @@
 #include <OpenHome/Private/TestFramework.h>
 #include <OpenHome/Private/OptionParser.h>
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Net/Core/OhNet.h>
 #include <OpenHome/Net/Private/Discovery.h>
 #include <OpenHome/Net/Private/DviDevice.h>
@@ -554,10 +554,10 @@ void SuiteMsearch::Test()
     device->Destroy();
     //Wait(); // allow time for initial annoucements to be delivered
 
-    /*TestMsearchAll();
+    TestMsearchAll();
     TestMsearchRoot();
     TestMsearchUuid();
-    TestMsearchDeviceType();*/
+    TestMsearchDeviceType();
     TestMsearchServiceType();
 }
 

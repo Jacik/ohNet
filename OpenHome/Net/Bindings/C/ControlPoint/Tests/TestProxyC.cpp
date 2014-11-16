@@ -9,7 +9,7 @@
 #include <OpenHome/Net/C/CpUpnpOrgConnectionManager1.h>
 #include <OpenHome/Net/C/CpProxy.h>
 #include <OpenHome/Net/C/Async.h>
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Private/TestFramework.h>
 #include <OpenHome/OsWrapper.h>
 #include <OpenHome/Private/Thread.h>
@@ -124,7 +124,7 @@ void DeviceList::InvokeSync()
 
 void DeviceList::PollInvoke()
 {
-    Timer timer(*gEnv, MakeFunctor(*this, &DeviceList::TimerExpired));
+    Timer timer(*gEnv, MakeFunctor(*this, &DeviceList::TimerExpired), "TestProxyC");
     for (TUint i=0; i<iList.size(); i++) {
         CpDeviceC device = iList[i];
         TUint countBefore = gActionCount;

@@ -1,7 +1,7 @@
 #ifndef HEADER_NETWORK
 #define HEADER_NETWORK
 
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Exception.h>
 #include <OpenHome/Private/Thread.h>
@@ -232,6 +232,7 @@ public:
     SocketUdp(Environment& aEnv, TUint aPort); // stipulate a port
     SocketUdp(Environment& aEnv, TUint aPort, TIpAddress aInterface); // stipulate a port and an interface
     void ReBind(TUint aPort, TIpAddress aInterface);
+    void SetMulticastIf(TIpAddress aInterface);
 private:
     void Bind(TUint aPort, TIpAddress aInterface);
 };

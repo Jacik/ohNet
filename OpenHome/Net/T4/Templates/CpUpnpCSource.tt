@@ -53,7 +53,7 @@
 #include <OpenHome/Net/Core/CpDevice.h>
 #include <OpenHome/Net/C/CpProxyCPrivate.h>
 #include <OpenHome/Net/Core/FunctorAsync.h>
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Exception.h>
 #include <OpenHome/Functor.h>
@@ -288,7 +288,7 @@ void <#=className#>C::SetProperty<#=s.name#>Changed(Functor& aFunctor)
 
 void <#=className#>C::Property<#=s.name#>(<#=propArgType[s.type]#> a<#=s.name#>) const
 {
-    PropertyReadLock();
+    AutoMutex a(GetPropertyReadLock());
     ASSERT(IsSubscribed());
 <#      if (s.type=="string" || s.type=="bin.base64" || s.type=="uri") #>
 <#      { #>
@@ -298,7 +298,6 @@ void <#=className#>C::Property<#=s.name#>(<#=propArgType[s.type]#> a<#=s.name#>)
 <#      { #>
     a<#=s.name#> = i<#=s.name#>->Value();
 <#      } #>
-    PropertyReadUnlock();
 }
 <#  } #>
 <#  foreach (Variable s in u.evented) #>

@@ -3,7 +3,7 @@
 // ... then checks how many times GetProtocolInfo can be run on each device in a second
 
 #include <OpenHome/Private/TestFramework.h>
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Net/Private/Discovery.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Private/Timer.h>
@@ -104,7 +104,7 @@ void DeviceListTI::TestSync()
 
 void DeviceListTI::Poll()
 {
-    Timer timer(iEnv, MakeFunctor(*this, &DeviceListTI::TimerExpired));
+    Timer timer(iEnv, MakeFunctor(*this, &DeviceListTI::TimerExpired), "TestInvocation");
     FunctorAsync callback = MakeFunctorAsync(*this, &DeviceListTI::GetProtocolInfoComplete);
     Brh tmp;
     const TUint count = (TUint)iList.size();
@@ -114,6 +114,7 @@ void DeviceListTI::Poll()
         Print("Device ");
         Print(device->Udn());
         iConnMgr = new CpProxyUpnpOrgConnectionManager1(*device);
+        ASSERT(iConnMgr->Version() > 0);
         iStopTimeMs = Os::TimeInMs(iEnv.OsCtx()) + kDevicePollMs;
         timer.FireIn(kDevicePollMs);
         for (TUint j=0; j<iEnv.InitParams()->NumActionInvokerThreads(); j++) {

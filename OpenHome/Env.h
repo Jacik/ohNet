@@ -7,7 +7,7 @@
 #ifndef HEADER_STACK
 #define HEADER_STACK
 
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 
 #include <vector>
 #include <map>
@@ -25,6 +25,12 @@ class IStack
 {
 public:
     virtual ~IStack() {}
+};
+
+class ISuspendObserver
+{
+public:
+    virtual void NotifySuspended() = 0; // not allowed to throw
 };
 
 class IResumeObserver
@@ -45,8 +51,8 @@ class Environment
     friend class Net::CpStack;
     friend class Net::DvStack;
 public:
-    Environment(FunctorMsg& aLogOutput);
-    Environment(Net::InitialisationParams* aInitParams);
+    static Environment* Create(FunctorMsg& aLogOutput);
+    static Environment* Create(Net::InitialisationParams* aInitParams);
     ~Environment();
 
     void GetVersion(TUint& aMajor, TUint& aMinor);
@@ -61,8 +67,11 @@ public:
     OpenHome::NetworkAdapterList& NetworkAdapterList();
     Net::SsdpListenerMulticast& MulticastListenerClaim(TIpAddress aInterface);
     void MulticastListenerRelease(TIpAddress aInterface);
+    void AddSuspendObserver(ISuspendObserver& aObserver);
     void AddResumeObserver(IResumeObserver& aObserver);
+    void RemoveSuspendObserver(ISuspendObserver& aObserver);
     void RemoveResumeObserver(IResumeObserver& aObserver);
+    void NotifySuspended();
     void NotifyResumed();
     TUint SequenceNumber();
     TInt Random();
@@ -74,7 +83,10 @@ public:
     void ListObjects();
     IStack* CpiStack();
     IStack* DviStack();
+    void SetInitParams(Net::InitialisationParams* aInitParams);
 private:
+    Environment(FunctorMsg& aLogOutput);
+    Environment(Net::InitialisationParams* aInitParams);
     void Construct(FunctorMsg& aLogOutput);
     void SetCpStack(IStack* aStack);
     void SetDvStack(IStack* aStack);
@@ -86,8 +98,9 @@ private:
     OpenHome::Mutex* iPublicLock;
     OpenHome::NetworkAdapterList* iNetworkAdapterList;
     std::vector<MListener*> iMulticastListeners;
+    std::vector<ISuspendObserver*> iSuspendObservers;
     std::vector<IResumeObserver*> iResumeObservers;
-    OpenHome::Mutex* iResumeObserverLock;
+    OpenHome::Mutex* iSuspendResumeObserverLock;
     TUint iSequenceNumber;
     IStack* iCpStack;
     IStack* iDvStack;

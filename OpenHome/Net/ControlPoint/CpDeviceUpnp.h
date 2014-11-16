@@ -1,7 +1,7 @@
 #ifndef HEADER_CPDEVICEUPNP
 #define HEADER_CPDEVICEUPNP
 
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Net/Core/CpDevice.h>
 #include <OpenHome/Net/Core/FunctorCpDevice.h>
@@ -14,9 +14,9 @@ class CpStack;
 /**
  * CpDevice::GetAttribute supports the following keys for devices created by
  * one of the lists below:
- *  location     - host portion of uri to the device
- *  deviceXml    - copy of the device XML
- *  friendlyName - user displayable name for the device
+ *  Location     - host portion of uri to the device
+ *  DeviceXml    - copy of the device XML
+ *  FriendlyName - user displayable name for the device
  *
  * All key names are case sensitive
  */

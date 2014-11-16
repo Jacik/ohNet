@@ -258,11 +258,50 @@ void Bwx::Replace(const TChar* aStr)
     iBytes = bytes;
 }
 
+TBool OpenHome::Bwx::TryAppend(TChar aChar)
+{
+    if ((iMaxBytes-Bytes())<1)
+    {
+        return(false);
+    }
+    Append(aChar);
+    return(true);
+}
+
+TBool OpenHome::Bwx::TryAppend(TByte aByte)
+{
+    if ((iMaxBytes-Bytes())<1)
+    {
+        return(false);
+    }
+    Append(aByte);
+    return(true);
+}
+
+
+TBool Bwx::TryAppend(const TChar* aStr)
+{
+    if ((iMaxBytes-Bytes())<OhNetStrlen(aStr))
+    {
+        return(false);
+    }
+    Append(aStr);
+    return(true);
+}
 void Bwx::Append(const TChar* aStr)
 {
     Append((TByte*)aStr, OhNetStrlen(aStr));
 }
 
+TBool Bwx::TryAppend(const Brx& aB)
+{
+    if ((iMaxBytes-Bytes())<aB.Bytes())
+    {
+        return(false);
+    }
+    Append(aB);
+    return(true);
+}
 void Bwx::Append(const Brx& aB)
 {
     const TByte* ptr = aB.Ptr();
@@ -270,6 +309,15 @@ void Bwx::Append(const Brx& aB)
     Append(ptr, aB.Bytes());
 }
 
+TBool Bwx::TryAppend(const TByte* aPtr, TUint aBytes)
+{
+    if ((iMaxBytes-Bytes())<aBytes)
+    {
+        return(false);
+    }
+    Append(aPtr, aBytes);
+    return(true);
+}
 void Bwx::Append(const TByte* aPtr, TUint aBytes)
 {
     ASSERT(Bytes() + aBytes <= MaxBytes());
@@ -279,29 +327,6 @@ void Bwx::Append(const TByte* aPtr, TUint aBytes)
     iBytes = Bytes() + aBytes;
 }
 
-void Bwx::Append(TUint16 aValue)
-{
-    TByte* ptr = reinterpret_cast<TByte*>(&aValue);
-    Append(ptr, 2);
-}
-
-void Bwx::Append(TInt16 aValue)
-{
-    TByte* ptr = reinterpret_cast<TByte*>(&aValue);
-    Append(ptr, 2);
-}
-
-void Bwx::Append(TUint32 aValue)
-{
-    TByte* ptr = reinterpret_cast<TByte*>(&aValue);
-    Append(ptr, 4);
-}
-
-void Bwx::Append(TInt32 aValue)
-{
-    TByte* ptr = reinterpret_cast<TByte*>(&aValue);
-    Append(ptr, 4);
-}
 
 void Bwx::AppendPrintf(const TChar* aFormatString, ...)
 {

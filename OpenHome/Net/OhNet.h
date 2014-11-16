@@ -327,6 +327,13 @@ public:
      * requirements) running on a device.
      */
     void SetDvLpecServerPort(uint32_t aPort);
+    /**
+     * Inform ohNet that UDP will be measurably unreliable on even a local network.
+     * (e.g. for an Apple device using wifi)
+     * Some control point behaviours will change in this case (e.g. device lists may
+     * signal that devices have been removed in fewer circumstances).
+     */
+    void SetHostUdpIsLowQuality(TBool aLow);
 
     FunctorMsg& LogOutput();
     FunctorMsg& FatalErrorHandler();
@@ -360,6 +367,7 @@ public:
     bool DvIsBonjourEnabled() const;
     uint32_t DvNumLpecThreads();
     uint32_t DvLpecServerPort();
+    bool IsHostUdpLowQuality();
 private:
     InitialisationParams();
     void FatalErrorHandlerDefault(const char* aMsg);
@@ -396,6 +404,7 @@ private:
     uint32_t iDvUpnpWebServerPort;
     uint32_t iDvWebSocketPort;
     bool iEnableBonjour;
+    bool iHostUdpLowQuality;
     uint32_t iDvNumLpecThreads;
     uint32_t iDvLpecServerPort;
 };
@@ -515,7 +524,16 @@ public:
     NetworkAdapter* CurrentSubnetAdapter(const char* aCookie);
 
     /**
-     * Inform the library that the application has been resumed
+     * Inform the library that the application has been suspended.
+     *
+     * This is necessary if the application may be paused while other processes on
+     * a device continued to be executed (e.g. when an app moves to background on iOS).
+     * It is typically not necessary to call this when the host device hibernates.
+     */
+    void NotifySuspended();
+
+    /**
+     * Inform the library that the application has been resumed.
      *
      * This is necessary if the application may have been paused while other processes on
      * a device continued to be executed (e.g. when an app moves to background on iOS).
@@ -524,6 +542,7 @@ public:
     void NotifyResumed();
 private:
     OpenHome::Environment* iEnv;
+    OpenHome::TBool iEnvOwner;
 };
 
 
@@ -640,6 +659,15 @@ public:
      *          Or NULL if there is no currently selected adapter.
      */
     static NetworkAdapter* CurrentSubnetAdapter(const char* aCookie);
+
+    /**
+     * Inform the library that the application has been suspended.
+     *
+     * This is necessary if the application may be paused while other processes on
+     * a device continued to be executed (e.g. when an app moves to background on iOS).
+     * It is typically not necessary to call this when the host device hibernates.
+     */
+    static void NotifySuspended();
 
     /**
      * Inform the library that the application has been resumed

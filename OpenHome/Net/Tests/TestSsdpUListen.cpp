@@ -3,7 +3,7 @@
 
 #include <OpenHome/Private/TestFramework.h>
 #include <OpenHome/Private/OptionParser.h>
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Net/Private/Discovery.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Private/Timer.h>
@@ -111,14 +111,15 @@ void SsdpNotifyLoggerU::SsdpNotifyServiceTypeByeBye(const Brx& aUuid, const Brx&
 
 static TIpAddress NetworkIf(Environment& aEnv, TUint aIndex)
 {
-    const std::vector<NetworkAdapter*>& ifs = aEnv.NetworkAdapterList().List();
-    ASSERT(ifs.size() > 0 && aIndex < ifs.size());
-    TIpAddress addr = ifs[aIndex]->Address();
+    std::vector<NetworkAdapter*>* ifs = aEnv.NetworkAdapterList().CreateNetworkAdapterList();
+    ASSERT(ifs->size() > 0 && aIndex < ifs->size());
+    TIpAddress addr = (*ifs)[aIndex]->Address();
+    NetworkAdapterList::DestroyNetworkAdapterList(ifs);
     Endpoint endpt(0, addr);
     Endpoint::AddressBuf buf;
     endpt.AppendAddress(buf);
     Print("Using network interface %s\n\n", buf.Ptr());
-    return ifs[aIndex]->Address();
+    return addr;
 }
 
 void TestSsdpUListen(Environment& aEnv, const std::vector<Brn>& aArgs)

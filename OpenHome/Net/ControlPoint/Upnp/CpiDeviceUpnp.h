@@ -8,7 +8,7 @@
 #ifndef HEADER_CPIDEVICEUPNP
 #define HEADER_CPIDEVICEUPNP
 
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Private/Thread.h>
 #include <OpenHome/Net/Private/Discovery.h>
@@ -57,6 +57,7 @@ private: // ICpiProtocol
     TUint Renew(CpiSubscription& aSubscription);
     void Unsubscribe(CpiSubscription& aSubscription, const Brx& aSid);
     void NotifyRemovedBeforeReady();
+    TUint Version(const TChar* aDomain, const TChar* aName, TUint aProxyVersion) const;
 private: // ICpiDeviceObserver
     void Release();
 private:
@@ -90,6 +91,7 @@ private:
     Invocable* iInvocable;
     Semaphore iSemReady;
     TBool iRemoved;
+    TBool iHostUdpIsLowQuality;
     CpiDeviceUpnp* iNewLocation;
     XmlFetch* iXmlCheck;
     friend class Invocable;
@@ -153,12 +155,14 @@ private:
     static const TUint kMaxMsearchRetryForNewAdapterSecs = 60;
     static const TUint kResumeDelayMs = 2 * 1000;
     static const TUint kRefreshRetries = 4;
+    Environment& iEnv;
     TIpAddress iInterface;
     SsdpListenerMulticast* iMulticastListener;
     TInt iNotifyHandlerId;
     TUint iInterfaceChangeListenerId;
     TUint iSubnetListChangeListenerId;
     TBool iStarted;
+    TBool iNoRemovalsFromRefresh;
     Timer* iRefreshTimer;
     Timer* iResumedTimer;
     TUint iRefreshRepeatCount;

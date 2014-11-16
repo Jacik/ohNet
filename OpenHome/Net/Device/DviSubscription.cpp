@@ -1,5 +1,5 @@
 #include <OpenHome/Net/Private/DviSubscription.h>
-#include <OpenHome/OhNetTypes.h>
+#include <OpenHome/Types.h>
 #include <OpenHome/Buffer.h>
 #include <OpenHome/Net/Private/DviService.h>
 #include <OpenHome/Net/Private/Service.h>
@@ -56,7 +56,7 @@ DviSubscription::DviSubscription(DvStack& aDvStack, DviDevice& aDevice, IPropert
     aSid.TransferTo(iSid);
     iWriterFactory.NotifySubscriptionCreated(iSid);
     Functor functor = MakeFunctor(*this, &DviSubscription::Expired);
-    iTimer = new Timer(iDvStack.Env(), functor);
+    iTimer = new Timer(iDvStack.Env(), functor, "DviSubscription");
     iDvStack.Env().AddObject(this);
 }
 
